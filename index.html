@@ -200,7 +200,7 @@
       <input type="checkbox" id="driftOn">
       <label for="driftOn">Enable beat-frequency drift (gradually change the beat over the session)</label>
     </div>
-    <div id="driftPanel" class="fade">
+    <div id="driftPanel" hidden>
       <div class="subgrid">
         <div class="mini"><label>Start beat (Hz)</label><input type="number" id="driftStart" min="0.5" max="40" step="0.1" value="10"></div>
         <div class="mini"><label>End beat (Hz)</label><input type="number" id="driftEnd" min="0.5" max="40" step="0.1" value="5"></div>
@@ -222,7 +222,7 @@
         <input type="checkbox" id="carrierDriftOn">
         <label for="carrierDriftOn">Also drift the carrier frequency (independent — some programs pace by carrier)</label>
       </div>
-      <div id="carrierDriftPanel" class="fade">
+      <div id="carrierDriftPanel" hidden>
         <div class="subgrid">
           <div class="mini"><label>Carrier start (Hz)</label><input type="number" id="cStart" min="50" max="500" step="1" value="150"></div>
           <div class="mini"><label>Carrier end (Hz)</label><input type="number" id="cEnd" min="50" max="500" step="1" value="90"></div>
@@ -257,7 +257,7 @@
       <input type="checkbox" id="isoOn">
       <label for="isoOn">Add an audible isochronic pulse (a tone gated on/off at the beat rate)</label>
     </div>
-    <div id="isoPanel" class="fade">
+    <div id="isoPanel" hidden>
       <div style="color:var(--muted);font-size:13px;margin-bottom:12px">
         Unlike the binaural beat, this pulse is <strong>directly audible</strong> — a rhythmic
         throb at the beat frequency that works even without headphones. It follows beat-frequency
@@ -286,7 +286,7 @@
         <input type="checkbox" id="noiseOn">
         <label for="noiseOn">Layer ambient noise under the tones</label>
       </div>
-      <div id="noisePanel" class="fade">
+      <div id="noisePanel" hidden>
         <div class="mini" style="margin-bottom:14px"><label>Type</label>
           <select id="noiseType">
             <option value="pink">Pink noise (soft)</option>
@@ -874,10 +874,11 @@
 
   // ================= UI WIRING =================
   function syncFades(){
-    $('driftPanel').classList.toggle('fade', !$('driftOn').checked);
-    $('carrierDriftPanel').classList.toggle('fade', !$('carrierDriftOn').checked);
-    $('noisePanel').classList.toggle('fade', !$('noiseOn').checked);
-    $('isoPanel').classList.toggle('fade', !$('isoOn').checked);
+    // checkbox-gated panels are hidden entirely when their box is off (tighter UI)
+    $('driftPanel').hidden        = !$('driftOn').checked;
+    $('carrierDriftPanel').hidden = !$('carrierDriftOn').checked;
+    $('noisePanel').hidden        = !$('noiseOn').checked;
+    $('isoPanel').hidden          = !$('isoOn').checked;
     // a slider is inert while ITS parameter is drifting (curve is pre-scheduled)
     $('beat-field').classList.toggle('fade', $('driftOn').checked);
     // presets set the beat, so they're inert while beat drift owns it
