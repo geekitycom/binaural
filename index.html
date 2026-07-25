@@ -175,13 +175,15 @@
     <!-- PRESETS -->
     <div class="panel">
       <h2>Brainwave presets</h2>
-      <div class="presets">
-        <button class="preset" data-carrier="120" data-beat="2"><div class="ptitle"><span class="dot" style="background:var(--delta)"></span>Delta</div><div class="pmeta">0.5–4 Hz · deep sleep</div></button>
-        <button class="preset" data-carrier="120" data-beat="6"><div class="ptitle"><span class="dot" style="background:var(--theta)"></span>Theta</div><div class="pmeta">4–8 Hz · meditation</div></button>
-      </div>
-      <div class="presets" style="margin-top:10px">
-        <button class="preset" data-carrier="120" data-beat="10"><div class="ptitle"><span class="dot" style="background:var(--alpha)"></span>Alpha</div><div class="pmeta">8–14 Hz · relaxation</div></button>
-        <button class="preset" data-carrier="150" data-beat="20"><div class="ptitle"><span class="dot" style="background:var(--beta)"></span>Beta</div><div class="pmeta">14–30 Hz · focus</div></button>
+      <div id="presetGroup">
+        <div class="presets">
+          <button class="preset" data-beat="2"><div class="ptitle"><span class="dot" style="background:var(--delta)"></span>Delta</div><div class="pmeta">0.5–4 Hz · deep sleep</div></button>
+          <button class="preset" data-beat="6"><div class="ptitle"><span class="dot" style="background:var(--theta)"></span>Theta</div><div class="pmeta">4–8 Hz · meditation</div></button>
+        </div>
+        <div class="presets" style="margin-top:10px">
+          <button class="preset" data-beat="10"><div class="ptitle"><span class="dot" style="background:var(--alpha)"></span>Alpha</div><div class="pmeta">8–14 Hz · relaxation</div></button>
+          <button class="preset" data-beat="20"><div class="ptitle"><span class="dot" style="background:var(--beta)"></span>Beta</div><div class="pmeta">14–30 Hz · focus</div></button>
+        </div>
       </div>
 
       <h2 style="margin-top:22px">Pulse (synced to beat)</h2>
@@ -573,6 +575,7 @@
 
   function onEnded(){
     if(ended) return; ended=true;
+    const endedCfg = session ? session.cfg : null;
     if(rafId) cancelAnimationFrame(rafId); rafId=null;
     if(tickId) clearInterval(tickId); tickId=null;
     const dying=ctx;
@@ -584,6 +587,11 @@
     setTransport();
     const s=clamp(+$('duration').value||1,1,180)*60;
     updateTimer(wasManual? s : 0, s);
+    // sliders that were mirroring a live drift return to their pre-play values
+    if(endedCfg){
+      if(endedCfg.drift.on){ $('beat').value=endedCfg.beat; $('v-beat').textContent=(+endedCfg.beat).toFixed(1); }
+      if(endedCfg.carrierDrift.on){ const r=Math.round(endedCfg.carrier); $('carrier').value=r; $('v-carrier').textContent=r; }
+    }
     refreshReadout(); drawGraph();
     const c=readConfig(); drawPulse(c.drift.on?c.drift.start:c.beat, 0, false);
     toast(wasManual ? 'Stopped' : 'Session complete ✓');
@@ -628,6 +636,10 @@
     const cfg=session.cfg;
     const bt=beatAt(cfg,frac), car=carrierAt(cfg,frac);
     paintReadout(car, bt);
+    // a drifting parameter's slider is inert; drive its thumb + label from the
+    // live curve value so it reflects reality instead of a stale static number
+    if(cfg.drift.on){ $('beat').value=bt; $('v-beat').textContent=bt.toFixed(1); }
+    if(cfg.carrierDrift.on){ const r=Math.round(car); $('carrier').value=r; $('v-carrier').textContent=r; }
     drawGraph(frac);
     drawPulse(bt, now, true);
     updateTimer(session.durationSec-elapsed, session.durationSec);
@@ -774,6 +786,8 @@
     $('noisePanel').classList.toggle('fade', !$('noiseOn').checked);
     // a slider is inert while ITS parameter is drifting (curve is pre-scheduled)
     $('beat-field').classList.toggle('fade', $('driftOn').checked);
+    // presets set the beat, so they're inert while beat drift owns it
+    $('presetGroup').classList.toggle('fade', $('driftOn').checked);
     $('carrier-field').classList.toggle('fade', $('carrierDriftOn').checked);
   }
 
@@ -816,10 +830,11 @@
     }
   }
 
-  // presets
+  // presets — beat frequency only; the carrier is left untouched. Inert while
+  // beat drift is active (the group is faded), matching the beat slider.
   document.querySelectorAll('.preset').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      setPair('carrier','v-carrier', +btn.dataset.carrier, 0);
+      if($('driftOn').checked) return;
       setPair('beat','v-beat', +btn.dataset.beat, 1);
       refreshReadout(); drawGraph(); liveRetune();
       toast('Preset loaded');
@@ -831,7 +846,6 @@
     $('driftOn').checked=true;
     $('driftStart').value=10; $('driftEnd').value=5; $('driftShape').value='ease'; $('plateaus').value=4;
     $('duration').value=20;
-    setPair('carrier','v-carrier',120,0);
     syncFades(); drawGraph(); refreshReadout();
     const s=20*60; updateTimer(s,s);
     toast('Loaded relaxation descent · Alpha 10 → Theta 5 over 20 min');
