@@ -1,0 +1,1232 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Binaural · Session Studio</title>
+<style>
+  :root{
+    --bg:#0e1226; --panel:#151b38; --panel2:#1a2247; --line:#26305a;
+    --text:#e7ecff; --muted:#8f9bd0; --teal:#63e6c9;
+    --delta:#6b7cff; --theta:#8f6bff; --alpha:#63e6c9; --beta:#ffb86b; --gamma:#ff6b9d;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--sans);
+    font-size:13px; line-height:1.4; -webkit-font-smoothing:antialiased;
+    padding-bottom:40px;
+  }
+  .mono{font-family:var(--mono); font-variant-numeric:tabular-nums}
+  h1,h2,h3,h4{margin:0; font-weight:600}
+  button{font-family:inherit; color:inherit; cursor:pointer}
+
+  /* ===== ribbon ===== */
+  .ribbon{
+    position:fixed; right:0; bottom:0; z-index:200;
+    background:linear-gradient(90deg,#1a2247,#26305a);
+    color:var(--teal); font-family:var(--mono); font-size:11px; letter-spacing:.5px;
+    padding:6px 12px; border-top-left-radius:8px;
+    border:1px solid var(--line); border-right:none; border-bottom:none;
+    box-shadow:0 -4px 20px rgba(0,0,0,.4);
+  }
+
+  /* ===== shell ===== */
+  .app{max-width:1200px; margin:0 auto; padding:14px}
+
+  /* ===== transport bar ===== */
+  .transport{
+    display:flex; align-items:center; gap:14px;
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:10px 14px; margin-bottom:12px;
+  }
+  .brand{display:flex; align-items:center; gap:9px; padding-right:6px}
+  .brand .logo{
+    width:26px; height:26px; border-radius:7px;
+    background:radial-gradient(circle at 30% 30%,var(--teal),#2a8f7a);
+    box-shadow:0 0 14px rgba(99,230,201,.4); flex:0 0 auto;
+  }
+  .brand .name{font-weight:700; letter-spacing:.3px}
+  .brand .sub{font-size:10px; color:var(--muted); letter-spacing:2px; text-transform:uppercase}
+
+  .tbtns{display:flex; gap:6px}
+  .tbtn{
+    width:38px; height:38px; border-radius:9px; border:1px solid var(--line);
+    background:var(--panel2); display:grid; place-items:center; transition:.15s;
+  }
+  .tbtn:hover{border-color:var(--teal); background:#20295099}
+  .tbtn svg{width:16px; height:16px; fill:var(--text)}
+  .tbtn.play{background:linear-gradient(180deg,#2a8f7a,#1d6b5b); border-color:#3fbfa3}
+  .tbtn.play svg{fill:#eafff9}
+  .tbtn.play:hover{box-shadow:0 0 16px rgba(99,230,201,.4)}
+
+  .scrub{flex:1; display:flex; align-items:center; gap:10px; min-width:120px}
+  .scrub .time{font-size:12px; color:var(--muted)}
+  .scrub .time b{color:var(--text)}
+  .track-line{
+    position:relative; flex:1; height:8px; border-radius:6px;
+    background:var(--panel2); border:1px solid var(--line); overflow:hidden;
+  }
+  .track-line .fill{
+    position:absolute; left:0; top:0; bottom:0; width:20.6%;
+    background:linear-gradient(90deg,#2a8f7a,var(--teal));
+  }
+  .track-line .knob{
+    position:absolute; top:50%; left:20.6%; transform:translate(-50%,-50%);
+    width:14px; height:14px; border-radius:50%; background:var(--text);
+    box-shadow:0 0 10px rgba(99,230,201,.6); border:2px solid var(--teal);
+  }
+
+  .readout{display:flex; gap:8px; align-items:stretch}
+  .ro{
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:4px 9px; min-width:56px; text-align:center;
+  }
+  .ro .k{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.8px}
+  .ro .v{font-size:14px; font-weight:600}
+  .ro .v small{font-size:9px; color:var(--muted); font-weight:400}
+  .bandpill{
+    display:inline-flex; align-items:center; gap:6px; border-radius:20px;
+    padding:5px 12px; font-weight:600; font-size:12px;
+    border:1px solid; align-self:center;
+  }
+  .bandpill .dot{width:9px;height:9px;border-radius:50%}
+
+  /* ===== main grid ===== */
+  .grid{display:grid; grid-template-columns:300px 1fr; gap:12px; align-items:start}
+  .leftcol,.maincol{display:flex; flex-direction:column; gap:12px; min-width:0}
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+  }
+  .panel .hd{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:10px 13px; border-bottom:1px solid var(--line);
+  }
+  .panel .hd h3{font-size:12px; letter-spacing:.5px; text-transform:uppercase; color:var(--muted)}
+  .panel .bd{padding:12px 13px}
+  .panel .hd.hd-collapsible{cursor:pointer; user-select:none}
+  .hd-caret{color:var(--muted); font-size:17px; line-height:1; transition:transform .18s ease}
+  .hd.hd-collapsible:hover .hd-caret{color:var(--text)}
+  .panel.collapsed .hd-caret{transform:rotate(-90deg)}
+  .panel.collapsed .hd{border-bottom:none}
+  .panel.collapsed > :not(.hd){display:none}
+
+  /* ===== layers / mixer tracks ===== */
+  .layers{display:flex; flex-direction:column}
+  .layer{
+    padding:11px 12px; border-bottom:1px solid var(--line); position:relative;
+    border-left:3px solid transparent;
+  }
+  .layer:last-child{border-bottom:none}
+  .layer.l-binaural{border-left-color:var(--alpha)}
+  .layer.l-iso{border-left-color:var(--beta)}
+  .layer.l-noise{border-left-color:var(--theta)}
+  .layer.off{opacity:.5}
+  .layer .lhd{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px}
+  .layer .lname{font-weight:600; font-size:14px; display:flex; align-items:center; gap:7px}
+  .layer .lname .cdot{width:8px;height:8px;border-radius:2px}
+  .l-binaural .cdot{background:var(--alpha)}
+  .l-iso .cdot{background:var(--beta)}
+  .l-noise .cdot{background:var(--theta)}
+
+  .msbtns{display:flex; gap:4px}
+  .ms{
+    width:22px; height:20px; border-radius:5px; border:1px solid var(--line);
+    background:var(--panel2); font-size:10px; font-weight:700; color:var(--muted);
+    display:grid; place-items:center; transition:.12s; padding:0;
+  }
+  .ms:hover{border-color:var(--teal)}
+  .ms.mute.on{background:#5a2a3a; border-color:var(--gamma); color:#ffc0d2}
+  .ms.solo.on{background:#5a4a1a; border-color:var(--beta); color:#ffe0b0}
+  .ms.pow{width:auto; padding:0 6px}
+  .ms.pow.on{background:#1d5a4a; border-color:var(--teal); color:var(--teal)}
+
+  .layer .meta{display:flex; gap:14px; font-size:12px; color:var(--muted); margin-bottom:8px}
+  .layer .meta .mono{color:var(--text)}
+
+  /* mini meter inside binaural track */
+  .metabox{
+    display:flex; align-items:center; gap:8px; margin-bottom:8px;
+    background:var(--bg); border:1px solid var(--line); border-radius:7px; padding:6px 8px;
+  }
+  .metabox svg{display:block}
+  .metabox .mlab{font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.6px}
+
+  .vol{display:flex; align-items:center; gap:8px}
+  .vol .vlab{font-size:10.5px; color:var(--muted); width:30px; text-transform:uppercase}
+  .slider{
+    -webkit-appearance:none; appearance:none; height:4px; border-radius:3px; flex:1;
+    background:var(--line); outline:none;
+  }
+  .slider::-webkit-slider-thumb{
+    -webkit-appearance:none; appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--teal); cursor:pointer; box-shadow:0 0 6px rgba(99,230,201,.5);
+  }
+  .slider::-moz-range-thumb{
+    width:13px; height:13px; border-radius:50%; background:var(--teal);
+    border:none; cursor:pointer;
+  }
+  .vol .vval{font-size:11px; color:var(--muted); width:34px; text-align:right}
+
+  /* base-tone (carrier/beat/vol) mini sliders — the editable home for the tone */
+  .tonectl{display:flex; flex-direction:column; gap:7px; margin-bottom:9px}
+  .tonectl .vlab{width:50px; font-size:9.5px; letter-spacing:.2px; white-space:nowrap}
+  .tonectl .vval{width:52px}
+  /* driven-by-automation state (a drift owns this parameter, like a track under automation) */
+  .basetone.driven{opacity:.45}
+  .basetone.driven .slider{pointer-events:none}
+  .basetone.driven .slider::-webkit-slider-thumb{background:var(--muted); box-shadow:none}
+  .basetone.driven .slider::-moz-range-thumb{background:var(--muted)}
+  .drivetag{
+    display:flex; align-items:center; gap:4px; margin:-4px 0 1px 50px;
+    font-family:var(--mono); font-size:9.5px; color:var(--teal); letter-spacing:.2px;
+  }
+
+  .seg{display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden}
+  .seg button{
+    background:var(--panel2); border:none; padding:5px 10px; font-size:11.5px;
+    color:var(--muted); border-right:1px solid var(--line);
+  }
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:#20345a; color:var(--text)}
+  .seg button:hover{color:var(--text)}
+
+  .off-hint{font-size:9px; color:var(--muted); margin-top:2px}
+  .badge-hp{
+    display:inline-flex; align-items:center; gap:5px; font-size:9.5px; color:var(--muted);
+    background:var(--bg); border:1px solid var(--line); border-radius:5px; padding:3px 6px;
+  }
+
+  /* ===== timeline hero ===== */
+  .tl-wrap{overflow-x:auto}
+  .tl-inner{min-width:760px}
+  .tl-toolbar{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    padding:9px 13px; border-bottom:1px solid var(--line);
+  }
+  .presets{display:flex; gap:5px}
+  .preset{
+    border:1px solid var(--line); background:var(--panel2); border-radius:7px;
+    padding:5px 10px; font-size:11px; font-weight:600; display:flex; align-items:center; gap:6px;
+    transition:.12s;
+  }
+  .preset:hover{border-color:currentColor; transform:translateY(-1px)}
+  .preset .pd{width:8px;height:8px;border-radius:50%}
+  .preset.p-delta{color:var(--delta)} .preset.p-theta{color:var(--theta)}
+  .preset.p-alpha{color:var(--alpha)} .preset.p-beta{color:var(--beta)}
+  .preset .pt{color:var(--text)}
+  .tb-spacer{flex:1}
+  .chip{
+    font-size:10.5px; color:var(--muted); border:1px solid var(--line);
+    border-radius:20px; padding:4px 10px; background:var(--panel2);
+  }
+  .chip.on{color:var(--teal); border-color:var(--teal)}
+
+  .legend{display:flex; gap:12px; padding:8px 13px; flex-wrap:wrap; border-bottom:1px solid var(--line)}
+  .legend .li{display:flex; align-items:center; gap:6px; font-size:10.5px; color:var(--muted)}
+  .legend .sw{width:14px; height:9px; border-radius:2px}
+  .legend .ln{width:16px; height:0; border-top:2px solid var(--teal)}
+  .legend .ln.dash{border-top:2px dashed var(--muted)}
+
+  /* ===== drift controls ===== */
+  .drift-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .fset{display:flex; flex-direction:column; gap:9px}
+  .fset .frow{display:flex; align-items:center; justify-content:space-between; gap:8px}
+  .fset label{font-size:11px; color:var(--muted)}
+  .num{
+    background:var(--bg); border:1px solid var(--line); border-radius:6px;
+    padding:4px 8px; width:82px; text-align:right; color:var(--text);
+    font-family:var(--mono); font-size:12px;
+  }
+  .num .u{color:var(--muted); font-size:10px}
+  .field{
+    display:flex; align-items:center; background:var(--bg); border:1px solid var(--line);
+    border-radius:6px; padding:0 8px; width:88px;
+  }
+  .field input{
+    background:none; border:none; outline:none; color:var(--text); text-align:right;
+    font-family:var(--mono); font-size:12px; padding:4px 0; width:100%;
+  }
+  .field .u{color:var(--muted); font-size:10px; padding-left:4px}
+
+  /* compact preset chip in the beat-drift header */
+  .hd-right{display:flex; align-items:center; gap:8px}
+  .mini-preset{
+    font-family:var(--mono); font-size:10.5px; font-weight:600; color:var(--teal);
+    background:#12302c; border:1px solid var(--teal); border-radius:20px;
+    padding:4px 10px; display:inline-flex; align-items:center; gap:5px; transition:.14s;
+    white-space:nowrap;
+  }
+  .mini-preset:hover{box-shadow:0 0 12px rgba(99,230,201,.35); background:#173e39}
+  .mini-preset:active{transform:translateY(1px)}
+
+  /* ===== dual-handle drift slider ===== */
+  .dual{display:flex; align-items:center; gap:10px; margin-bottom:16px; min-width:0}
+  .dnum{
+    font-family:var(--mono); font-variant-numeric:tabular-nums; font-size:14px; font-weight:600;
+    color:var(--text); min-width:58px; padding:3px 6px; border-radius:6px;
+    border:1px solid transparent; cursor:text; white-space:nowrap; transition:.12s; flex:0 0 auto;
+  }
+  .dnum.start{text-align:right}
+  .dnum.end{text-align:left}
+  .dnum:hover{border-color:var(--line); background:var(--bg);
+    text-decoration:underline; text-decoration-color:var(--muted); text-underline-offset:3px}
+  .dnum:focus-visible{outline:2px solid var(--teal); outline-offset:2px}
+  .dnum .du{color:var(--muted); font-size:10px; font-weight:400; margin-left:3px}
+  .dnum input{
+    width:52px; background:var(--bg); border:1px solid var(--teal); border-radius:5px;
+    color:var(--text); font-family:var(--mono); font-variant-numeric:tabular-nums;
+    font-size:14px; font-weight:600; padding:2px 4px; text-align:inherit; outline:none;
+  }
+  .dtrack{
+    position:relative; flex:1 1 auto; min-width:60px; height:6px; border-radius:5px;
+    background:var(--line); touch-action:none; margin:16px 10px 0;
+  }
+  .drange{
+    position:absolute; top:0; bottom:0; border-radius:5px;
+    background:linear-gradient(90deg,var(--teal),var(--theta));
+  }
+  .drange.ascent{background:linear-gradient(90deg,var(--theta),var(--teal))}
+  .dcue{
+    position:absolute; top:-17px; transform:translateX(-50%);
+    font-size:10px; color:var(--muted); font-family:var(--mono); pointer-events:none; white-space:nowrap;
+  }
+  .dhandle{
+    position:absolute; top:50%; width:18px; height:18px; margin-left:-9px; padding:0;
+    transform:translateY(-50%); border-radius:50%; background:var(--text);
+    border:2px solid var(--teal); cursor:grab; touch-action:none;
+    box-shadow:0 1px 4px rgba(0,0,0,.5); transition:box-shadow .12s;
+  }
+  .dhandle.h-end{border-color:var(--theta)}
+  .dhandle:hover{box-shadow:0 0 0 4px rgba(99,230,201,.18)}
+  .dhandle.h-end:hover{box-shadow:0 0 0 4px rgba(143,107,255,.2)}
+  .dhandle.grabbing{cursor:grabbing; box-shadow:0 0 0 5px rgba(99,230,201,.28)}
+  .dhandle:focus-visible{outline:2px solid var(--teal); outline-offset:3px}
+
+  .driftctl{display:flex; gap:24px; align-items:center; flex-wrap:wrap; margin-bottom:6px}
+  .driftctl .frow{display:flex; align-items:center; gap:10px}
+  .driftctl label{font-size:11px; color:var(--muted)}
+
+  /* ===== sessions ===== */
+  .sess-list{display:flex; flex-direction:column; gap:7px}
+  .sess{
+    display:flex; align-items:center; justify-content:space-between;
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px;
+    padding:8px 10px; transition:.12s;
+  }
+  .sess:hover{border-color:var(--teal)}
+  .sess.active{border-color:var(--teal); background:#1a2f2c}
+  .sess .sinfo .sn{font-weight:600; font-size:12px}
+  .sess .sinfo .sm{font-size:10px; color:var(--muted); font-family:var(--mono)}
+  .sess .sact{display:flex; gap:5px}
+  .iconbtn{
+    width:24px; height:24px; border-radius:6px; border:1px solid var(--line);
+    background:var(--bg); display:grid; place-items:center; padding:0;
+  }
+  .iconbtn:hover{border-color:var(--teal)}
+  .iconbtn svg{width:12px; height:12px; fill:var(--muted)}
+  .iconbtn:hover svg{fill:var(--teal)}
+  .impexp{display:flex; gap:7px; margin-top:11px}
+  .ghost{
+    flex:1; border:1px dashed var(--line); background:none; color:var(--muted);
+    border-radius:8px; padding:7px; font-size:11px; transition:.12s;
+  }
+  .ghost:hover{border-color:var(--teal); color:var(--teal)}
+
+  .section-gap{height:12px}
+  .two-col{display:grid; grid-template-columns:1.5fr 1fr; gap:12px; align-items:start}
+
+  .hint{font-size:10px; color:var(--muted); margin-top:6px; line-height:1.5}
+  .hint b{color:var(--text)}
+
+  /* toggle buttons in the timeline toolbar */
+  .toggle-btn{
+    font-size:11px; color:var(--muted); border:1px solid var(--line);
+    border-radius:20px; padding:5px 12px; background:var(--panel2);
+    display:inline-flex; align-items:center; gap:6px; transition:.14s;
+  }
+  .toggle-btn:hover{border-color:var(--teal); color:var(--text)}
+  .toggle-btn .tdot{
+    width:7px; height:7px; border-radius:50%; background:var(--muted); transition:.14s;
+  }
+  .toggle-btn[aria-pressed="true"]{
+    color:var(--teal); border-color:var(--teal);
+    background:#12302c; box-shadow:inset 0 0 0 1px rgba(99,230,201,.35);
+  }
+  .toggle-btn[aria-pressed="true"] .tdot{background:var(--teal); box-shadow:0 0 6px rgba(99,230,201,.7)}
+
+  [hidden]{display:none !important}
+
+  /* ===== mobile ===== */
+  @media (max-width:820px){
+    .app{padding:10px}
+    .grid{grid-template-columns:1fr}
+    .leftcol,.maincol{gap:10px}
+    .two-col{grid-template-columns:1fr}
+    .drift-grid{grid-template-columns:1fr}
+
+    /* transport wraps and stays readable */
+    .transport{flex-wrap:wrap; gap:10px}
+    .scrub{order:3; flex-basis:100%}
+    .readout{order:4; flex-basis:100%; flex-wrap:wrap}
+    .ro{flex:1; min-width:0}
+    .bandpill{width:100%; justify-content:center}
+
+    .layer .lname{font-size:14px}
+    .layer .meta{font-size:12.5px}
+    .tl-toolbar{gap:6px}
+  }
+  @media (max-width:480px){
+    .brand .sub{display:none}
+    .legend{gap:8px 10px}
+  }
+</style>
+</head>
+<body>
+<div class="ribbon mono">MOCKUP 2 · Session Studio</div>
+
+<div class="app">
+
+  <!-- ================= TRANSPORT ================= -->
+  <div class="transport">
+    <div class="brand">
+      <div class="logo"></div>
+      <div>
+        <div class="name">Binaural</div>
+        <div class="sub">Session Studio</div>
+      </div>
+    </div>
+
+    <div class="tbtns">
+      <button class="tbtn play" title="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></button>
+      <button class="tbtn" title="Pause"><svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg></button>
+      <button class="tbtn" title="Stop"><svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg></button>
+    </div>
+
+    <div class="scrub">
+      <span class="time mono"><b>04:12</b></span>
+      <div class="track-line"><div class="fill"></div><div class="knob"></div></div>
+      <span class="time mono">20:00</span>
+    </div>
+
+    <div class="readout">
+      <div class="ro"><div class="k">Carrier</div><div class="v mono" id="roCarrier">131<small>Hz</small></div></div>
+      <div class="ro"><div class="k">Beat</div><div class="v mono" id="roBeat">10.0<small>Hz</small></div></div>
+      <div class="ro"><div class="k">L · R</div><div class="v mono" id="roLR">131·141</div></div>
+      <div class="bandpill" id="bandPill" style="border-color:var(--alpha); color:var(--alpha); background:#11322c">
+        <span class="dot" id="bandDot" style="background:var(--alpha)"></span><span id="bandName">Alpha · relaxation</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MAIN GRID ================= -->
+  <div class="grid">
+
+    <!-- ---------- LEFT COLUMN: LAYERS + SESSIONS ---------- -->
+    <div class="leftcol">
+
+    <!-- Layers -->
+    <div class="panel">
+      <div class="hd hd-collapsible"><h3>Layers</h3><span class="hd-caret">▾</span></div>
+      <div class="layers">
+
+        <!-- Binaural -->
+        <div class="layer l-binaural">
+          <div class="lhd">
+            <div class="lname"><span class="cdot"></span>Binaural tone</div>
+            <div class="msbtns">
+              <button class="ms mute" title="Mute">M</button>
+              <button class="ms solo" title="Solo">S</button>
+              <button class="ms pow on" title="Enabled">ON</button>
+            </div>
+          </div>
+          <div class="tonectl">
+            <div class="vol basetone" id="carrierCtl">
+              <span class="vlab">Carrier</span>
+              <input class="slider" id="carrierSlider" type="range" min="50" max="500" step="1" value="131">
+              <span class="vval mono" id="carrierVal">131 Hz</span>
+            </div>
+            <div class="drivetag" id="carrierTag" hidden>↳ set by Carrier drift</div>
+
+            <div class="vol basetone" id="beatCtl">
+              <span class="vlab">Beat</span>
+              <input class="slider" id="beatSlider" type="range" min="0.5" max="40" step="0.1" value="10">
+              <span class="vval mono" id="beatVal">10.0 Hz</span>
+            </div>
+            <div class="drivetag" id="beatTag" hidden>↳ set by Beat drift</div>
+
+            <div class="vol">
+              <span class="vlab">Vol</span>
+              <input class="slider" type="range" min="0" max="100" value="72">
+              <span class="vval mono">72%</span>
+            </div>
+          </div>
+          <div class="metabox">
+            <svg id="meter" width="150" height="30" viewBox="0 0 150 30"></svg>
+            <span class="mlab">L / R<br>signal</span>
+          </div>
+          <div class="badge-hp" style="margin-top:8px">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#8f9bd0"><path d="M12 3a9 9 0 00-9 9v5a3 3 0 003 3h1v-7H5v-1a7 7 0 0114 0v1h-2v7h1a3 3 0 003-3v-5a9 9 0 00-9-9z"/></svg>
+            Headphones required
+          </div>
+        </div>
+
+        <!-- Isochronic -->
+        <div class="layer l-iso">
+          <div class="lhd">
+            <div class="lname"><span class="cdot"></span>Isochronic pulse</div>
+            <div class="msbtns">
+              <button class="ms mute" title="Mute">M</button>
+              <button class="ms solo" title="Solo">S</button>
+              <button class="ms pow on" title="Enabled">ON</button>
+            </div>
+          </div>
+          <div class="meta">
+            <span>gated @ beat rate</span>
+          </div>
+          <div class="vol" style="margin-bottom:8px">
+            <span class="vlab">Vol</span>
+            <input class="slider" type="range" min="0" max="100" value="45">
+            <span class="vval mono">45%</span>
+          </div>
+          <div class="vol">
+            <span class="vlab">Offs</span>
+            <input class="slider" type="range" min="0" max="100" value="60">
+            <span class="vval mono">+18Hz</span>
+          </div>
+          <div class="off-hint">Audible on speakers · no headphones needed</div>
+        </div>
+
+        <!-- Noise -->
+        <div class="layer l-noise off">
+          <div class="lhd">
+            <div class="lname"><span class="cdot"></span>Background noise</div>
+            <div class="msbtns">
+              <button class="ms mute" title="Mute">M</button>
+              <button class="ms solo" title="Solo">S</button>
+              <button class="ms pow" title="Disabled">OFF</button>
+            </div>
+          </div>
+          <div class="seg" style="margin-bottom:9px">
+            <button>White</button><button class="on">Pink</button><button>Brown</button>
+          </div>
+          <div class="vol">
+            <span class="vlab">Vol</span>
+            <input class="slider" type="range" min="0" max="100" value="30">
+            <span class="vval mono">30%</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <!-- /Layers panel -->
+
+    <!-- Saved sessions (left column, under Layers) -->
+    <div class="panel">
+      <div class="hd hd-collapsible"><h3>Saved sessions</h3><span class="hd-caret">▾</span></div>
+      <div class="bd">
+        <div class="sess-list">
+          <div class="sess active">
+            <div class="sinfo"><div class="sn">Evening Wind-Down</div><div class="sm">20m · 10→5Hz · ease</div></div>
+            <div class="sact">
+              <button class="iconbtn" title="Load"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM12 3L6 11h4v6h4v-6h4l-6-8z"/></svg></button>
+              <button class="iconbtn" title="Delete"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2H8l1-2z"/></svg></button>
+            </div>
+          </div>
+          <div class="sess">
+            <div class="sinfo"><div class="sn">Deep Focus 90</div><div class="sm">90m · 18Hz · steady</div></div>
+            <div class="sact">
+              <button class="iconbtn" title="Load"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM12 3L6 11h4v6h4v-6h4l-6-8z"/></svg></button>
+              <button class="iconbtn" title="Delete"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2H8l1-2z"/></svg></button>
+            </div>
+          </div>
+          <div class="sess">
+            <div class="sinfo"><div class="sn">Sleep Onset</div><div class="sm">45m · 6→2Hz · stepped</div></div>
+            <div class="sact">
+              <button class="iconbtn" title="Load"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM12 3L6 11h4v6h4v-6h4l-6-8z"/></svg></button>
+              <button class="iconbtn" title="Delete"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2H8l1-2z"/></svg></button>
+            </div>
+          </div>
+          <div class="sess">
+            <div class="sinfo"><div class="sn">Morning Alpha</div><div class="sm">15m · 10Hz · steady</div></div>
+            <div class="sact">
+              <button class="iconbtn" title="Load"><svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM12 3L6 11h4v6h4v-6h4l-6-8z"/></svg></button>
+              <button class="iconbtn" title="Delete"><svg viewBox="0 0 24 24"><path d="M6 7h12l-1 13H7L6 7zm3-3h6l1 2H8l1-2z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="impexp">
+          <button class="ghost">↧ Import JSON</button>
+          <button class="ghost">↥ Export JSON</button>
+        </div>
+      </div>
+    </div>
+
+    </div><!-- /.leftcol -->
+
+    <!-- ---------- MAIN COLUMN: TIMELINE + DRIFT ---------- -->
+    <div class="maincol">
+
+      <!-- TIMELINE PANEL -->
+      <div class="panel">
+        <div class="tl-toolbar">
+          <span style="font-size:12px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin-right:2px">Presets</span>
+          <div class="presets">
+            <button class="preset p-delta"><span class="pd" style="background:var(--delta)"></span><span class="pt">Delta</span></button>
+            <button class="preset p-theta"><span class="pd" style="background:var(--theta)"></span><span class="pt">Theta</span></button>
+            <button class="preset p-alpha"><span class="pd" style="background:var(--alpha)"></span><span class="pt">Alpha</span></button>
+            <button class="preset p-beta"><span class="pd" style="background:var(--beta)"></span><span class="pt">Beta</span></button>
+          </div>
+          <div class="tb-spacer"></div>
+          <button class="toggle-btn" id="btnBeatDrift" aria-pressed="true"><span class="tdot"></span>Beat drift</button>
+          <button class="toggle-btn" id="btnCarrierDrift" aria-pressed="false"><span class="tdot"></span>Carrier drift</button>
+          <button class="toggle-btn" id="btnSnapGrid" aria-pressed="false"><span class="tdot"></span>Snap grid</button>
+        </div>
+
+        <div class="legend">
+          <div class="li"><span class="sw" style="background:var(--delta);opacity:.35"></span>Delta &lt;4</div>
+          <div class="li"><span class="sw" style="background:var(--theta);opacity:.35"></span>Theta 4–8</div>
+          <div class="li"><span class="sw" style="background:var(--alpha);opacity:.35"></span>Alpha 8–14</div>
+          <div class="li"><span class="sw" style="background:var(--beta);opacity:.35"></span>Beta 14–30</div>
+          <div class="li"><span class="ln"></span>Beat curve</div>
+          <div class="li"><span class="ln dash"></span>Carrier curve</div>
+        </div>
+
+        <div class="tl-wrap">
+          <div class="tl-inner">
+            <svg id="timeline" width="100%" height="330" viewBox="0 0 760 330" preserveAspectRatio="none"></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Beat drift (full width) -->
+      <div class="panel" id="beatDriftCard">
+        <div class="hd hd-collapsible">
+          <h3>Beat drift · session progression</h3>
+          <span class="hd-caret">▾</span>
+        </div>
+        <div class="bd">
+          <div class="dual" id="dualBeat" data-min="0.5" data-max="40" data-step="0.5" data-unit="Hz" data-decimals="1" data-start="10" data-end="5">
+            <span class="dnum start" tabindex="0" title="Click to edit start"></span>
+            <div class="dtrack">
+              <div class="drange"></div>
+              <span class="dcue"></span>
+              <button class="dhandle h-start" tabindex="0" aria-label="Start beat frequency"></button>
+              <button class="dhandle h-end" tabindex="0" aria-label="End beat frequency"></button>
+            </div>
+            <span class="dnum end" tabindex="0" title="Click to edit end"></span>
+          </div>
+          <div class="driftctl">
+            <div class="frow"><label>Shape</label>
+              <div class="seg shape-seg">
+                <button data-shape="linear">Linear</button><button class="on" data-shape="ease">Ease</button><button data-shape="stepped">Stepped</button>
+              </div>
+            </div>
+            <div class="frow plateaus-row" hidden><label>Plateaus</label>
+              <span class="dnum plateaus" tabindex="0" data-min="2" data-max="12" data-val="3" data-unit="×" title="Click to edit plateaus"></span>
+            </div>
+          </div>
+          <div class="hint">Drag either handle, or click a number to type a value. Handles may cross — a descent (10→5) shows the ↓ cue. The timeline curve and Hz axis update live.</div>
+        </div>
+      </div>
+
+      <!-- Carrier drift (full width, hidden by default) -->
+      <div class="panel" id="carrierDriftCard" hidden>
+        <div class="hd hd-collapsible"><h3>Carrier drift · independent carrier sweep</h3><span class="hd-caret">▾</span></div>
+        <div class="bd">
+          <div class="dual" id="dualCarrier" data-min="50" data-max="500" data-step="1" data-unit="Hz" data-decimals="0" data-start="131" data-end="120">
+            <span class="dnum start" tabindex="0" title="Click to edit start"></span>
+            <div class="dtrack">
+              <div class="drange"></div>
+              <span class="dcue"></span>
+              <button class="dhandle h-start" tabindex="0" aria-label="Start carrier frequency"></button>
+              <button class="dhandle h-end" tabindex="0" aria-label="End carrier frequency"></button>
+            </div>
+            <span class="dnum end" tabindex="0" title="Click to edit end"></span>
+          </div>
+          <div class="driftctl">
+            <div class="frow"><label>Shape</label>
+              <div class="seg shape-seg">
+                <button data-shape="linear">Linear</button><button class="on" data-shape="ease">Ease</button><button data-shape="stepped">Stepped</button>
+              </div>
+            </div>
+            <div class="frow plateaus-row" hidden><label>Plateaus</label>
+              <span class="dnum plateaus" tabindex="0" data-min="2" data-max="12" data-val="2" data-unit="×" title="Click to edit plateaus"></span>
+            </div>
+          </div>
+          <div class="hint">The carrier drifts independently of the beat (dashed line on the timeline). Range <b>50–500 Hz</b>. Both ears track the carrier; the beat is the L/R offset.</div>
+        </div>
+      </div>
+
+    </div><!-- /.maincol -->
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ TIMELINE ============ */
+  var W=760, H=330;
+  var padL=44, padR=14, padT=14, padB=26;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  var MIN_TOTAL=20;                  // 20 min session
+  // vertical beat-Hz axis — auto-scales to the beat-drift range (computeAxis)
+  var AX={min:0, max:16, step:2};
+
+  function x(t){ return padL + (t/MIN_TOTAL)*plotW; }         // t in minutes
+  function y(hz){ return padT + (1-(hz-AX.min)/(AX.max-AX.min))*plotH; }
+
+  // pick a framed axis (min/max/step) that always contains the beat-drift endpoints
+  function computeAxis(s, e){
+    var lo=Math.min(s,e), hi=Math.max(s,e);
+    var pad=Math.max((hi-lo)*0.15, 1);
+    var rawMin=lo-pad, rawMax=hi+pad;
+    if(rawMin<0) rawMin=0;
+    var MIN_SPAN=8;                                   // don't collapse when start≈end
+    if(rawMax-rawMin < MIN_SPAN){
+      var mid=(rawMax+rawMin)/2;
+      rawMin=mid-MIN_SPAN/2; rawMax=mid+MIN_SPAN/2;
+      if(rawMin<0){ rawMax+=(0-rawMin); rawMin=0; }
+    }
+    var span=rawMax-rawMin;
+    var step = span<=12 ? 2 : (span<=30 ? 5 : 10);    // nice round label steps
+    var aMin=Math.max(0, Math.floor(rawMin/step)*step);
+    var aMax=Math.ceil(rawMax/step)*step;
+    if(aMax<=aMin) aMax=aMin+step;
+    return {min:aMin, max:aMax, step:step};
+  }
+
+  // band zones (in beat-Hz): drawn as shaded horizontal lanes
+  var bands=[
+    {name:"Gamma", lo:30, hi:9999, c:"#ff6b9d"},
+    {name:"Beta",  lo:14, hi:30,   c:"#ffb86b"},
+    {name:"Alpha", lo:8,  hi:14,   c:"#63e6c9"},
+    {name:"Theta", lo:4,  hi:8,    c:"#8f6bff"},
+    {name:"Delta", lo:0,  hi:4,    c:"#6b7cff"}
+  ];
+
+  // beat control points: ease descent 10 -> 5 with plateaus
+  var beatPts=[
+    {t:0,  hz:10.0},
+    {t:4,  hz:9.6},
+    {t:8,  hz:8.2},
+    {t:12, hz:6.6},
+    {t:16, hz:5.4},
+    {t:20, hz:5.0}
+  ];
+  // carrier curve (scaled to display band) 131 -> 120, drawn dashed. Map onto same axis proportionally.
+  var carrierPts=[
+    {t:0,  hz:13.1},
+    {t:6,  hz:12.6},
+    {t:12, hz:12.2},
+    {t:20, hz:12.0}
+  ];
+
+  function catmull(pts, samples, yfn){
+    yfn = yfn || y;
+    // smooth interpolation through points -> array of [x,y] points
+    var pathPts=[];
+    for(var i=0;i<pts.length-1;i++){
+      var p0=pts[i>0?i-1:i], p1=pts[i], p2=pts[i+1], p3=pts[i+2<pts.length?i+2:i+1];
+      for(var s=0;s<samples;s++){
+        var u=s/samples, u2=u*u, u3=u2*u;
+        var tt = 0.5*((2*p1.t)+(-p0.t+p2.t)*u+(2*p0.t-5*p1.t+4*p2.t-p3.t)*u2+(-p0.t+3*p1.t-3*p2.t+p3.t)*u3);
+        var hh = 0.5*((2*p1.hz)+(-p0.hz+p2.hz)*u+(2*p0.hz-5*p1.hz+4*p2.hz-p3.hz)*u2+(-p0.hz+3*p1.hz-3*p2.hz+p3.hz)*u3);
+        pathPts.push([x(tt),yfn(hh)]);
+      }
+    }
+    var last=pts[pts.length-1];
+    pathPts.push([x(last.t),yfn(last.hz)]);
+    return pathPts;
+  }
+  function toPath(pp){
+    var d="M"+pp[0][0].toFixed(1)+" "+pp[0][1].toFixed(1);
+    for(var i=1;i<pp.length;i++) d+=" L"+pp[i][0].toFixed(1)+" "+pp[i][1].toFixed(1);
+    return d;
+  }
+
+  var NS="http://www.w3.org/2000/svg";
+  function el(n,a){var e=document.createElementNS(NS,n);for(var k in a)e.setAttribute(k,a[k]);return e;}
+
+  var svg=document.getElementById("timeline");
+
+  function clear(g){ while(g.firstChild) g.removeChild(g.firstChild); }
+  // current beat value at a given time (linear over control points) — for the playhead dot
+  function beatAt(t){
+    for(var i=0;i<beatPts.length-1;i++){
+      if(t<=beatPts[i+1].t){
+        var a=beatPts[i], b=beatPts[i+1];
+        return a.hz + (b.hz-a.hz)*((t-a.t)/(b.t-a.t));
+      }
+    }
+    return beatPts[beatPts.length-1].hz;
+  }
+
+  // ---- layers in z-order; the axis-dependent ones are cleared+rebuilt on redraw ----
+  var bandGroup=el("g",{}); svg.appendChild(bandGroup);           // band zones (dynamic)
+
+  // snap grid (toggled). Vertical lines are time-based (static); horizontal are Hz-based (dynamic).
+  var snapGridGroup=el("g",{}); snapGridGroup.style.display="none"; svg.appendChild(snapGridGroup);
+  for(var st=0;st<=MIN_TOTAL;st+=1){
+    var sx=x(st);
+    snapGridGroup.appendChild(el("line",{x1:sx,y1:padT,x2:sx,y2:padT+plotH,stroke:"#63e6c9","stroke-opacity":"0.14","stroke-width":"1"}));
+  }
+  var snapHGroup=el("g",{}); snapGridGroup.appendChild(snapHGroup);
+
+  // static vertical gridlines + time labels
+  var gridGroup=el("g",{}); svg.appendChild(gridGroup);
+  for(var t=0;t<=MIN_TOTAL;t+=2){
+    var gx=x(t);
+    gridGroup.appendChild(el("line",{x1:gx,y1:padT,x2:gx,y2:padT+plotH,stroke:"#26305a","stroke-opacity":(t%4===0?"0.55":"0.28"),"stroke-width":"1"}));
+    var tl=el("text",{x:gx,y:H-9,fill:"#8f9bd0","font-size":"8.5","font-family":"var(--mono)","text-anchor":"middle"});
+    tl.textContent=(t<10?"0":"")+t+":00";
+    gridGroup.appendChild(tl);
+  }
+
+  var hzLabelGroup=el("g",{}); svg.appendChild(hzLabelGroup);     // left Hz labels (dynamic)
+
+  // axis frame (static)
+  svg.appendChild(el("rect",{x:padL,y:padT,width:plotW,height:plotH,fill:"none",stroke:"#26305a","stroke-width":"1"}));
+
+  // beat area gradient
+  var grad=el("linearGradient",{id:"beatgrad",x1:"0",y1:"0",x2:"0",y2:"1"});
+  grad.appendChild(el("stop",{offset:"0","stop-color":"#63e6c9","stop-opacity":"0.28"}));
+  grad.appendChild(el("stop",{offset:"1","stop-color":"#63e6c9","stop-opacity":"0"}));
+  var defs=el("defs",{}); defs.appendChild(grad); svg.appendChild(defs);
+
+  // carrier dashed reference — mapped into the upper band of whatever axis is showing
+  var cVals=carrierPts.map(function(p){return p.hz;});
+  var cMin=Math.min.apply(null,cVals), cMax=Math.max.apply(null,cVals);
+  function carrierY(hz){
+    var f = (cMax===cMin) ? 0.5 : (hz-cMin)/(cMax-cMin);
+    return y(AX.min + (0.70 + f*0.20)*(AX.max-AX.min));  // sits 70–90% up, sloping with its drift
+  }
+  var carPathEl=el("path",{fill:"none",stroke:"#8f9bd0","stroke-width":"1.6","stroke-dasharray":"5 4","stroke-opacity":"0.7"});
+  svg.appendChild(carPathEl);
+  var carLblEl=el("text",{fill:"#8f9bd0","font-size":"8.5","font-family":"var(--mono)","text-anchor":"end"});
+  carLblEl.textContent="carrier"; svg.appendChild(carLblEl);
+
+  // beat area + curve (persistent, updated in place)
+  var beatAreaEl=el("path",{fill:"url(#beatgrad)"});
+  var beatPathEl=el("path",{fill:"none",stroke:"#63e6c9","stroke-width":"2.4"});
+  svg.appendChild(beatAreaEl); svg.appendChild(beatPathEl);
+
+  // beat control-point handles (persistent). Shape fractions preserve the curve when endpoints move.
+  var origStart=beatPts[0].hz, origEnd=beatPts[beatPts.length-1].hz;
+  var beatShapeFrac=beatPts.map(function(p){
+    return (origStart===origEnd)?0:(p.hz-origEnd)/(origStart-origEnd);
+  });
+  var beatHandleEls=beatPts.map(function(p){
+    var cx=x(p.t);
+    var circle=el("circle",{cx:cx,r:"6.5",fill:"#0e1226",stroke:"#63e6c9","stroke-width":"2"});
+    var dot=el("circle",{cx:cx,r:"2.5",fill:"#63e6c9"});
+    var vl=el("text",{x:cx,fill:"#e7ecff","font-size":"8.5","font-family":"var(--mono)","text-anchor":"middle"});
+    svg.appendChild(circle); svg.appendChild(dot); svg.appendChild(vl);
+    return {pt:p, circle:circle, dot:dot, label:vl};
+  });
+
+  // playhead (static line/glow/head + dynamic dot)
+  var phT=MIN_TOTAL*0.206, phx=x(phT);
+  svg.appendChild(el("rect",{x:phx-4,y:padT,width:8,height:plotH,fill:"#63e6c9","fill-opacity":"0.10"}));
+  svg.appendChild(el("line",{x1:phx,y1:padT-2,x2:phx,y2:padT+plotH+2,stroke:"#63e6c9","stroke-width":"1.6"}));
+  svg.appendChild(el("path",{d:"M"+(phx-5)+" "+(padT-2)+" L"+(phx+5)+" "+(padT-2)+" L"+phx+" "+(padT+6)+" Z",fill:"#63e6c9"}));
+  var phDot=el("circle",{cx:phx,r:"4.5",fill:"#e7ecff",stroke:"#63e6c9","stroke-width":"2"});
+  svg.appendChild(phDot);
+
+  function clampY(hz){ return Math.max(padT, Math.min(padT+plotH, y(hz))); }
+
+  // ---- redraw everything that depends on the (auto-scaling) Hz axis ----
+  function redraw(){
+    clear(bandGroup); clear(hzLabelGroup); clear(snapHGroup);
+
+    // band zones clipped to the visible range
+    bands.forEach(function(b){
+      var visLo=Math.max(b.lo, AX.min), visHi=Math.min(b.hi, AX.max);
+      if(visHi<=visLo) return;
+      var yt=y(visHi), yb=y(visLo);
+      bandGroup.appendChild(el("rect",{x:padL,y:yt,width:plotW,height:(yb-yt),fill:b.c,"fill-opacity":"0.10"}));
+      bandGroup.appendChild(el("line",{x1:padL,y1:yt,x2:padL+plotW,y2:yt,stroke:b.c,"stroke-opacity":"0.22","stroke-width":"1"}));
+      if(yb-yt>14){
+        var lbl=el("text",{x:padL+6,y:(yt+yb)/2+3,fill:b.c,"fill-opacity":"0.85","font-size":"9","font-family":"var(--mono)","font-weight":"600"});
+        lbl.textContent=b.name; bandGroup.appendChild(lbl);
+      }
+    });
+
+    // left Hz axis labels + horizontal snap lines at each nice step
+    for(var hz=AX.min; hz<=AX.max+1e-6; hz+=AX.step){
+      var gy=y(hz);
+      var tl=el("text",{x:padL-6,y:gy+3,fill:"#8f9bd0","font-size":"8.5","font-family":"var(--mono)","text-anchor":"end"});
+      tl.textContent=Math.round(hz)+"Hz";
+      hzLabelGroup.appendChild(tl);
+      snapHGroup.appendChild(el("line",{x1:padL,y1:gy,x2:padL+plotW,y2:gy,stroke:"#63e6c9","stroke-opacity":"0.12","stroke-width":"1"}));
+    }
+
+    // carrier dashed reference
+    var carP=catmull(carrierPts,24,carrierY);
+    carPathEl.setAttribute("d", toPath(carP));
+    var lastC=carrierPts[carrierPts.length-1];
+    carLblEl.setAttribute("x", x(20)-4);
+    carLblEl.setAttribute("y", carrierY(lastC.hz)-6);
+
+    // beat curve + area fill
+    var bp=catmull(beatPts,24);
+    beatPathEl.setAttribute("d", toPath(bp));
+    beatAreaEl.setAttribute("d", toPath(bp)+" L"+x(20).toFixed(1)+" "+(padT+plotH)+" L"+padL.toFixed(1)+" "+(padT+plotH)+" Z");
+
+    // control-point handles + value labels
+    beatHandleEls.forEach(function(h){
+      var cy=clampY(h.pt.hz);
+      h.circle.setAttribute("cy",cy); h.dot.setAttribute("cy",cy);
+      h.label.setAttribute("y",cy-11); h.label.textContent=h.pt.hz.toFixed(1);
+    });
+
+    // playhead dot rides the beat curve
+    phDot.setAttribute("cy", clampY(beatAt(phT)));
+  }
+
+  // reshape curve + rescale axis when the Beat-drift slider changes (endpoints drive both)
+  function onBeatChange(startHz, endHz){
+    for(var i=0;i<beatPts.length;i++){
+      beatPts[i].hz = endHz + beatShapeFrac[i]*(startHz-endHz);
+    }
+    AX = computeAxis(startHz, endHz);
+    redraw();
+  }
+
+  // initial framing from the default beat drift (10 → 5)
+  AX = computeAxis(beatPts[0].hz, beatPts[beatPts.length-1].hz);
+  redraw();
+
+  /* ============ MINI L/R METER (bounded waveform) ============ */
+  var meter=document.getElementById("meter");
+  var mW=150,mH=30, midY=mH/2;
+  // two paths: L (teal) and R (slightly offset -> the beat)
+  var pathL=el("path",{fill:"none",stroke:"#63e6c9","stroke-width":"1.6","stroke-opacity":"0.95"});
+  var pathR=el("path",{fill:"none",stroke:"#8f6bff","stroke-width":"1.6","stroke-opacity":"0.8"});
+  meter.appendChild(el("line",{x1:0,y1:midY,x2:mW,y2:midY,stroke:"#26305a","stroke-width":"1"}));
+  meter.appendChild(pathL); meter.appendChild(pathR);
+
+  var phase=0;
+  var freqL=0.9;         // bounded cycles across the meter
+  var freqR=0.9+8.4/40;  // beat adds density but stays bounded (cap effect)
+  function drawMeter(){
+    phase+=0.09;
+    var amp=9;
+    var dL="M0 "+midY, dR="M0 "+midY;
+    for(var px=0;px<=mW;px+=3){
+      var u=px/mW;
+      var yL=midY - Math.sin(u*Math.PI*2*(freqL*6)+phase)*amp*(0.55+0.45*Math.sin(u*Math.PI));
+      var yR=midY - Math.sin(u*Math.PI*2*(freqR*6)+phase*1.02+0.6)*amp*0.85*(0.55+0.45*Math.sin(u*Math.PI));
+      dL+=" L"+px+" "+yL.toFixed(2);
+      dR+=" L"+px+" "+yR.toFixed(2);
+    }
+    pathL.setAttribute("d",dL);
+    pathR.setAttribute("d",dR);
+    requestAnimationFrame(drawMeter);
+  }
+  requestAnimationFrame(drawMeter);
+
+  /* ============ interactive toggles (visual only) ============ */
+  document.querySelectorAll(".ms.mute, .ms.solo").forEach(function(b){
+    b.addEventListener("click",function(){ b.classList.toggle("on"); });
+  });
+  document.querySelectorAll(".ms.pow").forEach(function(b){
+    b.addEventListener("click",function(){
+      b.classList.toggle("on");
+      var on=b.classList.contains("on");
+      b.textContent=on?"ON":"OFF";
+      b.closest(".layer").classList.toggle("off",!on);
+    });
+  });
+  document.querySelectorAll(".seg").forEach(function(seg){
+    seg.querySelectorAll("button").forEach(function(btn){
+      btn.addEventListener("click",function(){
+        seg.querySelectorAll("button").forEach(function(x){x.classList.remove("on");});
+        btn.classList.add("on");
+      });
+    });
+  });
+
+  /* ---- Shape → show Plateaus only for "Stepped" (per drift card) ---- */
+  document.querySelectorAll(".shape-seg").forEach(function(seg){
+    var row=seg.closest(".driftctl").querySelector(".plateaus-row");
+    if(!row) return;
+    function show(stepped){ row.hidden = !stepped; }
+    seg.querySelectorAll("button").forEach(function(b){
+      b.addEventListener("click",function(){ show(b.dataset.shape==="stepped"); });
+    });
+    var active=seg.querySelector("button.on");
+    show(active && active.dataset.shape==="stepped");   // default Ease -> hidden
+  });
+
+  /* ---- Plateaus: click-to-edit, matching the slider numbers (same _editing pattern) ---- */
+  document.querySelectorAll(".dnum.plateaus").forEach(function(span){
+    var min=parseInt(span.dataset.min,10), max=parseInt(span.dataset.max,10),
+        unit=span.dataset.unit||"", val=parseInt(span.dataset.val,10);
+    function clamp(v){ v=Math.round(v); return Math.max(min, Math.min(max, v)); }
+    function renderNum(){
+      if(span._editing) return;
+      span.innerHTML="";
+      var v=document.createElement("span"); v.textContent=String(val);
+      var u=document.createElement("span"); u.className="du"; u.textContent=unit;
+      span.appendChild(v); span.appendChild(u);
+    }
+    function open(){
+      if(span._editing) return;
+      span._editing=true;
+      var inp=document.createElement("input");
+      inp.type="text"; inp.setAttribute("inputmode","numeric"); inp.value=String(val);
+      span.innerHTML=""; span.appendChild(inp); inp.focus(); inp.select();
+      var committed=false;
+      function commit(){ if(committed) return; committed=true; span._editing=false;
+        var n=parseInt(inp.value,10);
+        if(!isNaN(n)) val=clamp(n);
+        renderNum();
+      }
+      inp.addEventListener("keydown",function(e){
+        if(e.key==="Enter"){ e.preventDefault(); commit(); span.focus(); }
+        else if(e.key==="Escape"){ e.preventDefault(); committed=true; span._editing=false; renderNum(); }
+        e.stopPropagation();
+      });
+      inp.addEventListener("blur", commit);
+    }
+    span.addEventListener("click", open);
+    span.addEventListener("keydown",function(e){
+      if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); }
+    });
+    renderNum();
+  });
+  document.querySelectorAll(".chip.on, .chip").forEach(function(c){
+    if(c.textContent.indexOf("track")>-1||/^\d+$/.test(c.textContent.trim())) return;
+    c.style.cursor="pointer";
+    c.addEventListener("click",function(){ c.classList.toggle("on"); });
+  });
+  /* ---- timeline toolbar toggles ---- */
+  function bindToggle(btnId, onToggle){
+    var b=document.getElementById(btnId);
+    if(!b) return;
+    b.addEventListener("click",function(){
+      var next = b.getAttribute("aria-pressed")!=="true";
+      b.setAttribute("aria-pressed", next?"true":"false");
+      onToggle(next);
+    });
+  }
+  bindToggle("btnBeatDrift", function(on){
+    document.getElementById("beatDriftCard").hidden = !on;
+    setDriven("beat", on); syncReadouts();
+  });
+  bindToggle("btnCarrierDrift", function(on){
+    document.getElementById("carrierDriftCard").hidden = !on;
+    setDriven("carrier", on); syncReadouts();
+  });
+  bindToggle("btnSnapGrid", function(on){
+    // denser gridlines appear when snapping is active (purely visual)
+    snapGridGroup.style.display = on ? "" : "none";
+  });
+
+  /* ---- dual-handle drift sliders ---- */
+  function initDual(root, onChange){
+    var min=parseFloat(root.dataset.min), max=parseFloat(root.dataset.max),
+        step=parseFloat(root.dataset.step), unit=root.dataset.unit||"",
+        dec=parseInt(root.dataset.decimals||"0",10);
+    var track=root.querySelector(".dtrack"),
+        range=root.querySelector(".drange"),
+        cue=root.querySelector(".dcue"),
+        hStart=root.querySelector(".h-start"),
+        hEnd=root.querySelector(".h-end"),
+        numStart=root.querySelector(".dnum.start"),
+        numEnd=root.querySelector(".dnum.end");
+    var vals={start:parseFloat(root.dataset.start), end:parseFloat(root.dataset.end)};
+
+    function pct(v){ return (v-min)/(max-min); }
+    function clampSnap(v){
+      v=Math.max(min,Math.min(max,v));
+      v=Math.round((v-min)/step)*step+min;
+      return Math.round(Math.max(min,Math.min(max,v))*1e6)/1e6;
+    }
+    function fmt(v){ return v.toFixed(dec); }
+    function renderNum(span,key){
+      if(span._editing) return; // mid-edit
+      span.innerHTML="";
+      var val=document.createElement("span"); val.textContent=fmt(vals[key]);
+      var u=document.createElement("span"); u.className="du"; u.textContent=unit;
+      span.appendChild(val); span.appendChild(u);
+    }
+    function render(){
+      var ps=pct(vals.start)*100, pe=pct(vals.end)*100;
+      hStart.style.left=ps+"%"; hEnd.style.left=pe+"%";
+      var lo=Math.min(ps,pe), hi=Math.max(ps,pe);
+      range.style.left=lo+"%"; range.style.width=(hi-lo)+"%";
+      var descent=vals.start>vals.end, steady=vals.start===vals.end;
+      range.classList.toggle("ascent", !descent && !steady);
+      cue.style.left=((lo+hi)/2)+"%";
+      cue.textContent = steady ? "— steady" : (descent ? "↓ descent" : "↑ ascent");
+      renderNum(numStart,"start"); renderNum(numEnd,"end");
+      if(typeof onChange==="function") onChange(vals.start, vals.end);
+    }
+    function setVal(key,v){ vals[key]=clampSnap(v); render(); }
+
+    function bindDrag(handle,key){
+      var dragging=false;
+      handle.addEventListener("pointerdown",function(e){
+        e.preventDefault(); dragging=true;
+        try{ handle.setPointerCapture(e.pointerId); }catch(_){}
+        handle.classList.add("grabbing"); handle.focus();
+      });
+      handle.addEventListener("pointermove",function(e){
+        if(!dragging) return;
+        var r=track.getBoundingClientRect();
+        var p=(e.clientX-r.left)/r.width;
+        setVal(key, min + p*(max-min));
+      });
+      function endDrag(e){
+        if(!dragging) return;
+        dragging=false; handle.classList.remove("grabbing");
+        try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
+      }
+      handle.addEventListener("pointerup",endDrag);
+      handle.addEventListener("pointercancel",endDrag);
+      handle.addEventListener("keydown",function(e){
+        if(e.key==="ArrowLeft"||e.key==="ArrowDown"){ e.preventDefault(); setVal(key, vals[key]-step); }
+        else if(e.key==="ArrowRight"||e.key==="ArrowUp"){ e.preventDefault(); setVal(key, vals[key]+step); }
+        else if(e.key==="Home"){ e.preventDefault(); setVal(key, min); }
+        else if(e.key==="End"){ e.preventDefault(); setVal(key, max); }
+      });
+    }
+    bindDrag(hStart,"start"); bindDrag(hEnd,"end");
+
+    function bindEdit(span,key,handle){
+      function open(){
+        if(span._editing) return;
+        span._editing=true;
+        var inp=document.createElement("input");
+        inp.type="text"; inp.setAttribute("inputmode","decimal"); inp.value=fmt(vals[key]);
+        span.innerHTML=""; span.appendChild(inp); inp.focus(); inp.select();
+        var committed=false;
+        function commit(){ if(committed) return; committed=true;
+          span._editing=false;
+          var n=parseFloat(inp.value);
+          if(!isNaN(n)) setVal(key,n); else render();
+        }
+        inp.addEventListener("keydown",function(e){
+          if(e.key==="Enter"){ e.preventDefault(); commit(); handle.focus(); }
+          else if(e.key==="Escape"){ e.preventDefault(); committed=true; span._editing=false; render(); }
+          e.stopPropagation();
+        });
+        inp.addEventListener("blur", commit);
+      }
+      span.addEventListener("click", open);
+      span.addEventListener("keydown",function(e){
+        if(e.key==="Enter"||e.key===" "){ e.preventDefault(); open(); }
+      });
+    }
+    bindEdit(numStart,"start",hStart); bindEdit(numEnd,"end",hEnd);
+
+    render();
+    return { setStart:function(v){setVal("start",v);}, setEnd:function(v){setVal("end",v);},
+             getStart:function(){return vals.start;}, getEnd:function(){return vals.end;},
+             set:function(s,e){ vals.start=clampSnap(s); vals.end=clampSnap(e); render(); } };
+  }
+
+  var dualBeat=initDual(document.getElementById("dualBeat"), onBeatChange);
+  var dualCarrier=initDual(document.getElementById("dualCarrier"), null);
+
+  // collapse/expand each card via its header caret
+  document.querySelectorAll(".hd.hd-collapsible").forEach(function(hd){
+    hd.addEventListener("click", function(){ hd.closest(".panel").classList.toggle("collapsed"); });
+  });
+
+  /* ---- base-tone (carrier/beat) sliders + drift-override cross-sync ---- */
+  var carrierSlider=document.getElementById("carrierSlider"),
+      carrierVal=document.getElementById("carrierVal"),
+      beatSlider=document.getElementById("beatSlider"),
+      beatVal=document.getElementById("beatVal");
+  var baseCarrier=parseFloat(carrierSlider.value),   // steady values when NOT under drift
+      baseBeat=parseFloat(beatSlider.value);
+
+  function beatDriftOn(){ return document.getElementById("btnBeatDrift").getAttribute("aria-pressed")==="true"; }
+  function carrierDriftOn(){ return document.getElementById("btnCarrierDrift").getAttribute("aria-pressed")==="true"; }
+
+  function bandFor(hz){
+    if(hz<4)  return {n:"Delta · deep sleep", c:"#6b7cff", bg:"#1b1f3d"};
+    if(hz<8)  return {n:"Theta · meditation", c:"#8f6bff", bg:"#221b3d"};
+    if(hz<14) return {n:"Alpha · relaxation", c:"#63e6c9", bg:"#11322c"};
+    if(hz<30) return {n:"Beta · focus",       c:"#ffb86b", bg:"#33260f"};
+    return           {n:"Gamma · peak",       c:"#ff6b9d", bg:"#331523"};
+  }
+
+  // live CURRENT values — a drift owns its param while its toggle is ON
+  function currentCarrier(){
+    if(carrierDriftOn()){
+      var s=dualCarrier.getStart(), e=dualCarrier.getEnd();
+      return s + (e-s)*(phT/MIN_TOTAL);     // sample the sweep at the playhead
+    }
+    return baseCarrier;
+  }
+  function currentBeat(){
+    return beatDriftOn() ? beatAt(phT) : baseBeat;   // beatAt() reads the timeline curve
+  }
+
+  function syncReadouts(){
+    var c=currentCarrier(), b=currentBeat();
+    document.getElementById("roCarrier").innerHTML = Math.round(c)+"<small>Hz</small>";
+    document.getElementById("roBeat").innerHTML = b.toFixed(1)+"<small>Hz</small>";
+    document.getElementById("roLR").textContent = Math.round(c)+"·"+Math.round(c+b);
+    var bd=bandFor(b), pill=document.getElementById("bandPill");
+    pill.style.borderColor=bd.c; pill.style.color=bd.c; pill.style.background=bd.bg;
+    document.getElementById("bandDot").style.background=bd.c;
+    document.getElementById("bandName").textContent=bd.n;
+  }
+
+  function setDriven(which, driven){
+    var ctl, slider, valEl, tag;
+    if(which==="carrier"){ ctl=document.getElementById("carrierCtl"); slider=carrierSlider; valEl=carrierVal; tag=document.getElementById("carrierTag"); }
+    else { ctl=document.getElementById("beatCtl"); slider=beatSlider; valEl=beatVal; tag=document.getElementById("beatTag"); }
+    ctl.classList.toggle("driven", driven);
+    slider.tabIndex = driven ? -1 : 0;
+    tag.hidden = !driven;
+    if(which==="carrier"){
+      var cv = driven ? currentCarrier() : baseCarrier;
+      slider.value=cv; valEl.textContent=Math.round(cv)+" Hz";
+    } else {
+      var bv = driven ? currentBeat() : baseBeat;
+      slider.value=bv; valEl.textContent=bv.toFixed(1)+" Hz";
+    }
+  }
+
+  // editing a base slider (only reachable when it's not driven)
+  carrierSlider.addEventListener("input", function(){
+    baseCarrier=parseFloat(carrierSlider.value);
+    carrierVal.textContent=Math.round(baseCarrier)+" Hz";
+    syncReadouts();
+  });
+  beatSlider.addEventListener("input", function(){
+    baseBeat=parseFloat(beatSlider.value);
+    beatVal.textContent=baseBeat.toFixed(1)+" Hz";
+    syncReadouts();
+  });
+
+  // initial states: Beat drift ON -> beat driven+tagged; Carrier drift OFF -> carrier editable
+  setDriven("carrier", carrierDriftOn());
+  setDriven("beat", beatDriftOn());
+  syncReadouts();
+
+  // live volume % labels
+  document.querySelectorAll(".vol:not(.basetone)").forEach(function(v){
+    var s=v.querySelector(".slider"), out=v.querySelector(".vval");
+    if(!s||!out) return;
+    var isOffset=out.textContent.indexOf("Hz")>-1;
+    s.addEventListener("input",function(){
+      if(isOffset){
+        var hz=Math.round((s.value-50)/50*100);
+        out.textContent=(hz>=0?"+":"")+hz+"Hz";
+      }else out.textContent=s.value+"%";
+    });
+  });
+})();
+</script>
+</body>
+</html>

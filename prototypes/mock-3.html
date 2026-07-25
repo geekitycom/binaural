@@ -1,0 +1,1249 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binaural · Instrument</title>
+<style>
+  /* ============================================================
+     Binaural — Concept "Instrument"
+     A tactile hardware-synth take. Two frequencies are the hero.
+     Controls arranged spatially around a central beat dial.
+     ============================================================ */
+
+  :root{
+    --bg:#0e1226;
+    --panel:#151b38;
+    --panel-2:#1a2247;
+    --line:#26305a;
+    --text:#e7ecff;
+    --muted:#8f9bd0;
+    --teal:#63e6c9;
+
+    --delta:#6b7cff;
+    --theta:#8f6bff;
+    --alpha:#63e6c9;
+    --beta:#ffb86b;
+    --gamma:#ff6b9d;
+
+    --radius:16px;
+    --knob-size:64px;
+  }
+
+  *{ box-sizing:border-box; }
+
+  html,body{ margin:0; padding:0; }
+
+  body{
+    background:
+      radial-gradient(1200px 800px at 50% -10%, #182046 0%, transparent 60%),
+      radial-gradient(900px 700px at 100% 110%, #16244a 0%, transparent 55%),
+      var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,"Apple Color Emoji","Segoe UI Emoji",sans-serif;
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    padding:28px 22px 60px;
+  }
+
+  .shell{
+    max-width:1180px;
+    margin:0 auto;
+  }
+
+  /* ---------- top bar ---------- */
+  .topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:18px;
+    margin-bottom:26px;
+  }
+  .brand{
+    display:flex;
+    align-items:center;
+    gap:14px;
+  }
+  .brand .mark{
+    width:44px;height:44px;border-radius:12px;
+    background:linear-gradient(145deg,#1d2650,#10152e);
+    border:1px solid var(--line);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.06), 0 6px 18px rgba(0,0,0,.4);
+    display:grid;place-items:center;
+    position:relative;
+  }
+  .brand .mark::before,
+  .brand .mark::after{
+    content:"";position:absolute;border-radius:50%;
+  }
+  .brand .mark::before{ width:18px;height:18px;border:2px solid var(--teal); left:8px; opacity:.9;}
+  .brand .mark::after{ width:18px;height:18px;border:2px solid var(--alpha); right:8px; opacity:.55;}
+  .brand h1{
+    font-size:19px;letter-spacing:.14em;text-transform:uppercase;
+    margin:0;font-weight:700;
+  }
+  .brand .sub{ font-size:11px;color:var(--muted);letter-spacing:.28em;text-transform:uppercase; margin-top:3px;}
+
+  .topbar-right{ display:flex; align-items:center; gap:10px; }
+
+  .chip{
+    display:inline-flex;align-items:center;gap:8px;
+    font-size:11.5px;color:var(--muted);
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+    padding:8px 12px;border-radius:999px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.04);
+  }
+  .chip .dot{ width:7px;height:7px;border-radius:50%;background:var(--teal); box-shadow:0 0 8px var(--teal);}
+  .chip.hp .dot{ background:var(--beta); box-shadow:0 0 8px var(--beta); }
+
+  .icon-btn{
+    width:36px;height:36px;border-radius:10px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+    color:var(--muted);cursor:pointer;
+    display:grid;place-items:center;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05), 0 3px 8px rgba(0,0,0,.35);
+    transition:transform .12s ease,color .12s ease,border-color .12s ease;
+  }
+  .icon-btn:hover{ color:var(--text); border-color:#33407a; transform:translateY(-1px); }
+  .icon-btn svg{ width:16px;height:16px; }
+
+  /* ============================================================
+     MAIN GRID: left modules · hero dial · right modules
+     ============================================================ */
+  .console{
+    display:grid;
+    grid-template-columns:260px minmax(360px,1fr) 260px;
+    gap:22px;
+    align-items:start;
+  }
+
+  .stack{ display:flex; flex-direction:column; gap:18px; }
+
+  /* ---------- module panel ---------- */
+  .module{
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:16px;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.05),
+      0 10px 26px rgba(0,0,0,.35);
+    position:relative;
+  }
+  .module .m-head{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:14px;
+  }
+  .module .m-title{
+    font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+    color:var(--muted);font-weight:700;
+    display:flex;align-items:center;gap:8px;
+  }
+  .module .m-title .led{
+    width:8px;height:8px;border-radius:50%;
+    background:#2b345f;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06);
+  }
+  .module.on .m-title .led{
+    background:var(--teal);box-shadow:0 0 10px var(--teal);
+  }
+
+  /* screws for skeuomorphic feel */
+  .module::before,.module::after{
+    content:"";position:absolute;width:5px;height:5px;border-radius:50%;
+    background:radial-gradient(circle at 35% 35%, #3a4576, #10142b);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
+    opacity:.7;
+  }
+  .module::before{ top:9px; right:9px; }
+  .module::after{ bottom:9px; left:9px; }
+
+  /* ---------- toggle switch ---------- */
+  .toggle{
+    width:44px;height:24px;border-radius:999px;
+    background:#10152e;border:1px solid var(--line);
+    position:relative;cursor:pointer;flex:0 0 auto;
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.5);
+    transition:background .18s ease;
+  }
+  .toggle .knob{
+    position:absolute;top:2px;left:2px;
+    width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(180deg,#e7ecff,#b9c3ee);
+    box-shadow:0 2px 5px rgba(0,0,0,.5);
+    transition:transform .18s ease;
+  }
+  .toggle.on{ background:linear-gradient(180deg,#1f8f7c,#146b5c); border-color:#2fae96; }
+  .toggle.on .knob{ transform:translateX(20px); background:linear-gradient(180deg,#eafff9,#8ff0dc); }
+
+  /* ---------- knobs ---------- */
+  .knob-row{ display:flex; gap:14px; justify-content:space-around; }
+  .knob-unit{ display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .knob{
+    width:var(--knob-size);height:var(--knob-size);border-radius:50%;
+    background:
+      radial-gradient(circle at 50% 30%, #303b70, #171d3c 70%);
+    border:1px solid #333e74;
+    position:relative;
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,.08),
+      inset 0 -6px 12px rgba(0,0,0,.55),
+      0 6px 14px rgba(0,0,0,.45);
+    cursor:ns-resize;
+    touch-action:none;
+    outline:none;
+    transition:transform .1s ease, box-shadow .12s ease;
+  }
+  .knob:focus-visible{
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,.08),
+      inset 0 -6px 12px rgba(0,0,0,.55),
+      0 0 0 3px rgba(99,230,201,.55),
+      0 6px 14px rgba(0,0,0,.45);
+  }
+  .knob.dragging{
+    transform:scale(1.05);
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,.1),
+      inset 0 -6px 12px rgba(0,0,0,.55),
+      0 0 22px rgba(99,230,201,.35),
+      0 8px 18px rgba(0,0,0,.5);
+  }
+  .knob.dragging .ind{ background:#eafff9; box-shadow:0 0 14px var(--teal); }
+  .knob .cap{
+    position:absolute;inset:9px;border-radius:50%;
+    background:radial-gradient(circle at 50% 35%, #242d59, #141935);
+    box-shadow:inset 0 1px 2px rgba(255,255,255,.06), inset 0 -3px 8px rgba(0,0,0,.6);
+  }
+  .knob .ind{
+    position:absolute;left:50%;top:7px;
+    width:3px;height:16px;border-radius:2px;
+    background:var(--teal);
+    box-shadow:0 0 8px var(--teal);
+    transform-origin:50% 25px;
+    transform:translateX(-50%) rotate(0deg);
+  }
+  .knob .tick{
+    position:absolute;inset:-4px;border-radius:50%;
+    background:
+      repeating-conic-gradient(from -130deg, rgba(143,155,208,.28) 0 1deg, transparent 1deg 25deg);
+    -webkit-mask:radial-gradient(circle, transparent 0 34px, #000 34px);
+            mask:radial-gradient(circle, transparent 0 34px, #000 34px);
+    opacity:.6;
+  }
+  .knob-label{ font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted); }
+  .knob-val{ font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;font-weight:600; }
+
+  /* ---------- segmented selector ---------- */
+  .seg{
+    display:flex;gap:4px;
+    background:#10152e;border:1px solid var(--line);
+    border-radius:10px;padding:4px;
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.45);
+  }
+  .seg button{
+    flex:1;border:0;cursor:pointer;
+    background:transparent;color:var(--muted);
+    font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:600;
+    padding:7px 4px;border-radius:7px;
+    transition:all .14s ease;
+  }
+  .seg button:hover{ color:var(--text); }
+  .seg button.active{
+    background:linear-gradient(180deg,#2a3568,#1d2650);
+    color:var(--text);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08), 0 2px 6px rgba(0,0,0,.4);
+  }
+
+  /* ---------- preset keys ---------- */
+  .preset-keys{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px; }
+  .keycap{
+    position:relative;
+    border:1px solid var(--line);
+    border-radius:12px;
+    background:linear-gradient(180deg,#212a58,#161c3b);
+    padding:12px 10px 11px;
+    cursor:pointer;text-align:left;color:var(--text);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,.08),
+      0 5px 0 #0c1027,
+      0 8px 14px rgba(0,0,0,.45);
+    transition:transform .08s ease, box-shadow .08s ease;
+    overflow:hidden;
+  }
+  .keycap:hover{ transform:translateY(1px); box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 4px 0 #0c1027,0 7px 12px rgba(0,0,0,.45); }
+  .keycap:active{ transform:translateY(4px); box-shadow:inset 0 1px 0 rgba(255,255,255,.06),0 1px 0 #0c1027,0 3px 8px rgba(0,0,0,.5); }
+  .keycap .band-name{ font-size:13px;font-weight:700;letter-spacing:.02em; }
+  .keycap .band-hz{ font-size:10.5px;color:var(--muted);margin-top:2px; font-variant-numeric:tabular-nums;}
+  .keycap .swatch{
+    position:absolute;top:0;left:0;width:5px;height:100%;
+  }
+  .keycap.active{
+    border-color:#3a4685;
+    background:linear-gradient(180deg,#2b3670,#1b2246);
+  }
+  .keycap.active::after{
+    content:"";position:absolute;top:9px;right:9px;width:7px;height:7px;border-radius:50%;
+    background:var(--teal);box-shadow:0 0 8px var(--teal);
+  }
+
+  /* ============================================================
+     HERO — beat dial
+     ============================================================ */
+  .hero{
+    display:flex;flex-direction:column;align-items:center;gap:20px;
+  }
+  .dial-wrap{
+    position:relative;
+    width:360px;height:360px;
+    display:grid;place-items:center;
+    cursor:grab;
+    touch-action:none;
+    outline:none;
+    border-radius:50%;
+  }
+  .dial-wrap.dragging{ cursor:grabbing; }
+  .dial-wrap:focus-visible::after{
+    content:"";position:absolute;inset:2px;border-radius:50%;
+    box-shadow:0 0 0 3px rgba(99,230,201,.55);
+    pointer-events:none;
+  }
+  .dial-svg{ width:100%;height:100%; display:block; }
+
+  /* soft pedestal under dial */
+  .dial-wrap::before{
+    content:"";position:absolute;inset:26px;border-radius:50%;
+    background:radial-gradient(circle at 50% 40%, #1a2247 0%, #10152e 70%);
+    box-shadow:
+      inset 0 2px 3px rgba(255,255,255,.05),
+      inset 0 -18px 40px rgba(0,0,0,.55),
+      0 20px 50px rgba(0,0,0,.5);
+  }
+
+  .dial-center{
+    position:absolute;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;pointer-events:none;
+    width:180px;
+  }
+  .dial-center .beat-num{
+    font-size:66px;font-weight:800;line-height:.95;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;
+    text-shadow:0 4px 24px rgba(99,230,201,.25);
+  }
+  .dial-center .beat-unit{ font-size:16px;color:var(--muted);font-weight:600;margin-top:-2px; }
+  .dial-center .band-pill{
+    margin-top:12px;
+    font-size:11px;letter-spacing:.18em;text-transform:uppercase;font-weight:700;
+    padding:6px 14px;border-radius:999px;
+    border:1px solid;
+  }
+  .dial-center .band-desc{ font-size:11px;color:var(--muted);margin-top:8px; }
+
+  /* the pulse ring layer (the concept's answer to strobing) */
+  .pulse-ring{
+    position:absolute;inset:8px;border-radius:50%;
+    pointer-events:none;
+  }
+  /* Smooth continuous shimmer — used at/above ~8 Hz (alpha & up).
+     Below ~8 Hz the app would instead flash discrete "blooms" once
+     per beat (a single opacity pulse), legible and un-strobing. */
+  .shimmer{
+    position:absolute;inset:0;border-radius:50%;
+    background:conic-gradient(from 0deg,
+      rgba(99,230,201,0) 0deg,
+      rgba(99,230,201,.55) 60deg,
+      rgba(99,230,201,0) 150deg,
+      rgba(99,230,201,0) 360deg);
+    -webkit-mask:radial-gradient(circle, transparent 0 150px, #000 150px 168px, transparent 168px);
+            mask:radial-gradient(circle, transparent 0 150px, #000 150px 168px, transparent 168px);
+    filter:blur(2px);
+    animation:spin 6s linear infinite;
+    opacity:.9;
+  }
+  .shimmer.two{
+    background:conic-gradient(from 180deg,
+      rgba(99,230,201,0) 0deg,
+      rgba(143,107,255,.35) 70deg,
+      rgba(99,230,201,0) 160deg,
+      rgba(99,230,201,0) 360deg);
+    animation-duration:9s;
+    animation-direction:reverse;
+    opacity:.6;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* transport */
+  .transport{
+    display:flex;align-items:center;gap:16px;
+    background:linear-gradient(180deg,var(--panel-2),var(--panel));
+    border:1px solid var(--line);
+    border-radius:18px;
+    padding:14px 18px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 12px 28px rgba(0,0,0,.4);
+  }
+  .t-btn{
+    width:52px;height:52px;border-radius:50%;
+    border:1px solid var(--line);cursor:pointer;
+    display:grid;place-items:center;color:var(--text);
+    background:linear-gradient(180deg,#232c5c,#161c3b);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 5px 12px rgba(0,0,0,.45);
+    transition:transform .1s ease,border-color .1s ease;
+  }
+  .t-btn:hover{ transform:translateY(-1px); border-color:#3a4685; }
+  .t-btn:active{ transform:translateY(1px); }
+  .t-btn svg{ width:20px;height:20px; }
+  .t-btn.play{
+    width:64px;height:64px;
+    background:linear-gradient(180deg,#2fae96,#146b5c);
+    border-color:#3fd0b4;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 0 24px rgba(99,230,201,.35),0 6px 16px rgba(0,0,0,.5);
+  }
+  .t-btn.play svg{ width:24px;height:24px; }
+  .timer{
+    display:flex;flex-direction:column;align-items:flex-start;
+    padding-left:6px;border-left:1px solid var(--line);
+    margin-left:2px;padding-left:16px;
+  }
+  .timer .count{ font-size:30px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:.02em; }
+  .timer .total{ font-size:11px;color:var(--muted);letter-spacing:.08em; margin-top:1px;}
+
+  /* ---------- carrier column (concentric to hero, but as a slider) ---------- */
+  .carrier-mod .carrier-body{ display:flex; gap:16px; align-items:stretch; }
+  .vslider{
+    width:52px;flex:0 0 auto;
+    border-radius:12px;
+    background:linear-gradient(180deg,#10152e,#0c1027);
+    border:1px solid var(--line);
+    position:relative;
+    box-shadow:inset 0 2px 8px rgba(0,0,0,.6);
+    height:150px;
+    cursor:ns-resize;
+    touch-action:none;
+    outline:none;
+  }
+  .vslider:focus-visible{ box-shadow:inset 0 2px 8px rgba(0,0,0,.6),0 0 0 3px rgba(99,230,201,.55); }
+  .vslider.dragging .thumb{ box-shadow:0 3px 10px rgba(0,0,0,.6),0 0 14px rgba(99,230,201,.5),inset 0 1px 0 rgba(255,255,255,.6); }
+  .vslider .fill{
+    position:absolute;left:0;right:0;bottom:0;height:58%;
+    border-radius:0 0 12px 12px;
+    background:linear-gradient(180deg, rgba(99,230,201,.5), rgba(99,230,201,.12));
+  }
+  .vslider .thumb{
+    position:absolute;
+    bottom:58%;margin-bottom:-9px;
+    width:44px;height:18px;border-radius:6px;left:4px;
+    background:linear-gradient(180deg,#e7ecff,#aab5e6);
+    box-shadow:0 3px 6px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.6);
+  }
+  .vslider .thumb::after{
+    content:"";position:absolute;left:8px;right:8px;top:50%;height:2px;
+    background:#5a6392;border-radius:2px;transform:translateY(-50%);
+  }
+  .carrier-read{ display:flex;flex-direction:column;justify-content:center;gap:10px;flex:1; }
+  .carrier-read .big{
+    font-size:34px;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;
+  }
+  .carrier-read .big span{ font-size:14px;color:var(--muted);font-weight:600; }
+  .ears{ display:flex;gap:8px; }
+  .ear{
+    flex:1;border:1px solid var(--line);border-radius:10px;
+    background:#10152e;padding:8px 10px;text-align:center;
+  }
+  .ear .lbl{ font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted); }
+  .ear .hz{ font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px; }
+  .ear.r .hz{ color:var(--alpha); }
+
+  /* ---------- drift module ---------- */
+  .field-row{ display:flex; gap:10px; }
+  .field{
+    flex:1;
+    background:#10152e;border:1px solid var(--line);border-radius:10px;
+    padding:8px 10px;box-shadow:inset 0 2px 5px rgba(0,0,0,.4);
+  }
+  .field .flbl{ font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted); }
+  .field .fval{ font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px; }
+  .field .fval small{ font-size:10px;color:var(--muted);font-weight:500; }
+
+  .descent-btn{
+    width:100%;margin-top:12px;
+    border:1px solid #3a4685;border-radius:11px;cursor:pointer;
+    background:linear-gradient(180deg,#2a3568,#1a2247);
+    color:var(--text);padding:11px;font-size:12px;font-weight:700;letter-spacing:.04em;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 4px 10px rgba(0,0,0,.4);
+    transition:transform .1s ease,border-color .1s ease;
+  }
+  .descent-btn:hover{ transform:translateY(-1px);border-color:var(--teal); }
+  .descent-btn .grad{
+    width:22px;height:8px;border-radius:4px;
+    background:linear-gradient(90deg,var(--alpha),var(--theta));
+  }
+
+  /* drift mini sparkline */
+  .drift-spark{
+    margin-top:12px;height:44px;width:100%;
+    border-radius:8px;border:1px solid var(--line);background:#10152e;
+    padding:6px;
+  }
+
+  /* ---------- duration ---------- */
+  .dur-body{ display:flex;align-items:center;gap:14px; }
+  .dur-big{ font-size:32px;font-weight:800;font-variant-numeric:tabular-nums; }
+  .dur-big span{ font-size:13px;color:var(--muted);font-weight:600; }
+  .dur-track{
+    flex:1;height:8px;border-radius:5px;position:relative;
+    background:#10152e;border:1px solid var(--line);
+    box-shadow:inset 0 1px 3px rgba(0,0,0,.5);
+    cursor:ew-resize;
+    touch-action:none;
+    outline:none;
+  }
+  .dur-track:focus-visible{ box-shadow:inset 0 1px 3px rgba(0,0,0,.5),0 0 0 3px rgba(99,230,201,.55); }
+  .dur-track.dragging .thumb{ box-shadow:0 2px 8px rgba(0,0,0,.6),0 0 12px rgba(99,230,201,.5),inset 0 1px 0 rgba(255,255,255,.6); }
+  .dur-track .fill{ position:absolute;left:0;top:0;bottom:0;width:33%;border-radius:5px;
+    background:linear-gradient(90deg,var(--teal),#3aa88f); }
+  .dur-track .thumb{
+    position:absolute;top:50%;left:33%;transform:translate(-50%,-50%);
+    width:18px;height:18px;border-radius:50%;
+    background:linear-gradient(180deg,#e7ecff,#aab5e6);
+    box-shadow:0 2px 6px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.6);
+    cursor:pointer;
+  }
+
+  /* noise type mini */
+  .noise-swatches{ display:flex;gap:6px;margin-top:10px; }
+
+  /* footer note */
+  .footnote{
+    text-align:center;color:var(--muted);font-size:11.5px;margin-top:26px;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+  }
+  .footnote svg{ width:14px;height:14px; opacity:.8;}
+
+  /* fixed ribbon */
+  .ribbon{
+    position:fixed;left:14px;bottom:14px;z-index:50;
+    background:linear-gradient(180deg,#1c2450,#11162f);
+    border:1px solid var(--line);
+    color:var(--muted);
+    font-size:11px;letter-spacing:.14em;text-transform:uppercase;font-weight:700;
+    padding:8px 13px;border-radius:999px;
+    box-shadow:0 6px 18px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);
+  }
+  .ribbon b{ color:var(--teal);font-weight:800; }
+
+  /* ---------- responsive ---------- */
+  @media (max-width:1080px){
+    .console{ grid-template-columns:1fr; }
+    .stack{ display:grid; grid-template-columns:repeat(2,1fr); }
+    .hero{ order:-1; grid-column:1 / -1; }
+    .console .hero{ }
+  }
+  @media (max-width:640px){
+    .stack{ grid-template-columns:1fr; }
+    .dial-wrap{ width:300px;height:300px; }
+    .dial-center .beat-num{ font-size:56px; }
+  }
+</style>
+</head>
+<body>
+  <div class="ribbon">MOCKUP 3 · <b>Instrument</b></div>
+
+  <div class="shell">
+
+    <!-- ===================== TOP BAR ===================== -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="mark"></div>
+        <div>
+          <h1>Binaural</h1>
+          <div class="sub">Instrument</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <span class="chip hp"><span class="dot"></span>Headphones recommended</span>
+        <span class="chip"><span class="dot"></span>Session: Evening wind-down</span>
+        <button class="icon-btn" title="Saved sessions" aria-label="Saved sessions">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7"/></svg>
+        </button>
+        <button class="icon-btn" title="Export / Import JSON" aria-label="Export or import">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="M8 11l4 4 4-4"/><path d="M5 21h14"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- ===================== CONSOLE ===================== -->
+    <div class="console">
+
+      <!-- ---------- LEFT STACK ---------- -->
+      <div class="stack">
+
+        <!-- PRESETS -->
+        <div class="module">
+          <div class="m-head">
+            <div class="m-title"><span class="led"></span>Bands</div>
+          </div>
+          <div class="preset-keys">
+            <button class="keycap" data-beat="2" data-band="Delta">
+              <span class="swatch" style="background:var(--delta)"></span>
+              <div class="band-name" style="color:var(--delta)">Delta</div>
+              <div class="band-hz">2 Hz · deep sleep</div>
+            </button>
+            <button class="keycap" data-beat="5" data-band="Theta">
+              <span class="swatch" style="background:var(--theta)"></span>
+              <div class="band-name" style="color:var(--theta)">Theta</div>
+              <div class="band-hz">5 Hz · meditation</div>
+            </button>
+            <button class="keycap active" data-beat="10" data-band="Alpha">
+              <span class="swatch" style="background:var(--alpha)"></span>
+              <div class="band-name" style="color:var(--alpha)">Alpha</div>
+              <div class="band-hz">10 Hz · relaxation</div>
+            </button>
+            <button class="keycap" data-beat="20" data-band="Beta">
+              <span class="swatch" style="background:var(--beta)"></span>
+              <div class="band-name" style="color:var(--beta)">Beta</div>
+              <div class="band-hz">20 Hz · focus</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- DRIFT -->
+        <div class="module on" id="drift-mod">
+          <div class="m-head">
+            <div class="m-title"><span class="led"></span>Beat drift</div>
+            <div class="toggle on" data-toggle="drift"><span class="knob"></span></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><div class="flbl">Start</div><div class="fval">10 <small>Hz</small></div></div>
+            <div class="field"><div class="flbl">End</div><div class="fval">5 <small>Hz</small></div></div>
+          </div>
+          <div style="height:10px"></div>
+          <div class="field-row">
+            <div class="field"><div class="flbl">Shape</div><div class="fval" style="font-size:13px">Ease</div></div>
+            <div class="field"><div class="flbl">Plateaus</div><div class="fval">3</div></div>
+          </div>
+          <svg class="drift-spark" viewBox="0 0 220 32" preserveAspectRatio="none">
+            <defs>
+              <linearGradient id="dg" x1="0" x2="1">
+                <stop offset="0" stop-color="#63e6c9"/><stop offset="1" stop-color="#8f6bff"/>
+              </linearGradient>
+            </defs>
+            <path d="M2,8 C60,8 70,10 110,18 C150,26 170,26 218,27" fill="none" stroke="url(#dg)" stroke-width="2.2" stroke-linecap="round"/>
+            <circle cx="2" cy="8" r="3" fill="#63e6c9"/>
+            <circle cx="218" cy="27" r="3" fill="#8f6bff"/>
+          </svg>
+          <button class="descent-btn"><span class="grad"></span>Relaxation descent · 10→5 Hz</button>
+        </div>
+
+        <!-- CARRIER DRIFT (secondary, compact) -->
+        <div class="module">
+          <div class="m-head">
+            <div class="m-title"><span class="led"></span>Carrier drift</div>
+            <div class="toggle" data-toggle="cdrift"><span class="knob"></span></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><div class="flbl">Start</div><div class="fval">131 <small>Hz</small></div></div>
+            <div class="field"><div class="flbl">End</div><div class="fval">131 <small>Hz</small></div></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.4">
+            Off — carrier holds steady while the beat descends.
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ---------- HERO ---------- -->
+      <div class="hero">
+        <div class="dial-wrap" id="beatDial" tabindex="0" role="slider"
+             aria-label="Beat frequency" aria-valuemin="0.5" aria-valuemax="40" aria-valuenow="10">
+          <!-- band ring + dial drawn with SVG -->
+          <svg class="dial-svg" viewBox="0 0 360 360" aria-label="Beat frequency dial">
+            <defs>
+              <radialGradient id="dialFace" cx="50%" cy="38%" r="70%">
+                <stop offset="0%" stop-color="#212a58"/>
+                <stop offset="70%" stop-color="#141a38"/>
+                <stop offset="100%" stop-color="#0d1128"/>
+              </radialGradient>
+              <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="3"/>
+              </filter>
+            </defs>
+
+            <!-- outer bezel -->
+            <circle cx="180" cy="180" r="176" fill="none" stroke="#20284d" stroke-width="6"/>
+
+            <!-- BAND RING ARCS (Delta→Gamma). Full sweep 270deg from -225 to +45.
+                 Segmented proportionally-ish for legibility. -->
+            <g fill="none" stroke-width="16" stroke-linecap="butt">
+              <!-- each arc via stroke-dasharray on a circle r=158, circumference ~992.7 -->
+              <!-- We'll instead draw 5 arcs using path A commands. -->
+            </g>
+
+            <!-- Band arcs as paths (r=158). Sweep total 300deg, gap between -->
+            <!-- Delta -->
+            <path d="M 68.5 291.5 A 158 158 0 0 1 30.9 214.6" fill="none" stroke="#6b7cff" stroke-width="16" stroke-linecap="round" opacity=".85"/>
+            <!-- Theta -->
+            <path d="M 27.6 196.9 A 158 158 0 0 1 45.8 111.1" fill="none" stroke="#8f6bff" stroke-width="16" stroke-linecap="round" opacity=".85"/>
+            <!-- Alpha (current band — brightened) -->
+            <path d="M 55.4 96.4 A 158 158 0 0 1 128.7 37.6" fill="none" stroke="#63e6c9" stroke-width="18" stroke-linecap="round"/>
+            <!-- Beta -->
+            <path d="M 146.6 32.8 A 158 158 0 0 1 240.5 44.9" fill="none" stroke="#ffb86b" stroke-width="16" stroke-linecap="round" opacity=".85"/>
+            <!-- Gamma -->
+            <path d="M 256.6 53.8 A 158 158 0 0 1 320.6 128.8" fill="none" stroke="#ff6b9d" stroke-width="16" stroke-linecap="round" opacity=".85"/>
+
+            <!-- band labels -->
+            <text x="52"  y="250" fill="#6b7cff" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">DELTA</text>
+            <text x="44"  y="140" fill="#8f6bff" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">THETA</text>
+            <text x="120" y="60"  fill="#63e6c9" font-size="11" font-weight="800" letter-spacing="1.5" text-anchor="middle">ALPHA</text>
+            <text x="238" y="60"  fill="#ffb86b" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">BETA</text>
+            <text x="318" y="140" fill="#ff6b9d" font-size="11" font-weight="700" letter-spacing="1.5" text-anchor="middle">GAMMA</text>
+
+            <!-- dial face -->
+            <circle cx="180" cy="180" r="126" fill="url(#dialFace)" stroke="#2c366a" stroke-width="2"/>
+            <circle cx="180" cy="180" r="126" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="1"/>
+
+            <!-- fine tick marks around dial face -->
+            <g id="ticks" stroke="#5a6392" stroke-width="1.4"></g>
+
+            <!-- pointer/indicator at current value (~10Hz Alpha, top area) -->
+            <g id="pointer" transform="rotate(30 180 180)">
+              <line x1="180" y1="70" x2="180" y2="98" stroke="#63e6c9" stroke-width="4" stroke-linecap="round"/>
+              <circle cx="180" cy="66" r="6" fill="#63e6c9" filter="url(#soft)"/>
+              <circle cx="180" cy="66" r="4" fill="#eafff9"/>
+            </g>
+          </svg>
+
+          <!-- pulse ring shimmer (alpha = smooth continuous, non-strobing) -->
+          <div class="pulse-ring">
+            <div class="shimmer"></div>
+            <div class="shimmer two"></div>
+          </div>
+
+          <!-- center readout -->
+          <div class="dial-center">
+            <div class="beat-num" style="color:var(--alpha)">10<span style="font-size:34px">.0</span></div>
+            <div class="beat-unit">Hz beat</div>
+            <div class="band-pill" style="color:var(--alpha);border-color:var(--alpha);background:rgba(99,230,201,.08)">Alpha</div>
+            <div class="band-desc">Relaxation · 8–14 Hz</div>
+          </div>
+        </div>
+
+        <!-- TRANSPORT -->
+        <div class="transport">
+          <button class="t-btn play" title="Play" aria-label="Play">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+          </button>
+          <button class="t-btn" title="Pause" aria-label="Pause">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="5" width="4" height="14" rx="1"/><rect x="13" y="5" width="4" height="14" rx="1"/></svg>
+          </button>
+          <button class="t-btn" title="Stop" aria-label="Stop">
+            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>
+          </button>
+          <div class="timer">
+            <div class="count">18:42</div>
+            <div class="total">of 20:00 · descending to Theta</div>
+          </div>
+        </div>
+
+        <!-- CARRIER (secondary hero control) -->
+        <div class="module carrier-mod" style="width:100%">
+          <div class="m-head">
+            <div class="m-title"><span class="led"></span>Carrier</div>
+            <div style="font-size:11px;color:var(--muted)">50–500 Hz</div>
+          </div>
+          <div class="carrier-body">
+            <div class="vslider" id="carrierSlider" tabindex="0" role="slider"
+                 aria-label="Carrier frequency" aria-valuemin="50" aria-valuemax="500" aria-valuenow="131"
+                 title="Carrier frequency">
+              <div class="fill"></div>
+              <div class="thumb"></div>
+            </div>
+            <div class="carrier-read">
+              <div class="big"><span id="carrierVal">131</span> <span>Hz</span></div>
+              <div class="ears">
+                <div class="ear l"><div class="lbl">Left ear</div><div class="hz" id="earL">131</div></div>
+                <div class="ear r"><div class="lbl">Right ear</div><div class="hz" id="earR">141</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---------- RIGHT STACK ---------- -->
+      <div class="stack">
+
+        <!-- MASTER + DURATION combined would be busy; keep VOLUME knob module -->
+        <div class="module">
+          <div class="m-head">
+            <div class="m-title"><span class="led" style="background:var(--teal);box-shadow:0 0 10px var(--teal)"></span>Output</div>
+          </div>
+          <div class="knob-row">
+            <div class="knob-unit">
+              <div class="knob" tabindex="0" role="slider" aria-label="Master volume"
+                   data-knob data-min="0" data-max="100" data-default="72" data-value="72"
+                   data-unit="%" data-step="1" data-bigstep="10">
+                <div class="tick"></div><div class="cap"></div><div class="ind"></div>
+              </div>
+              <div class="knob-label">Master</div>
+              <div class="knob-val">72%</div>
+            </div>
+          </div>
+          <div style="height:16px"></div>
+          <div class="m-title" style="margin-bottom:10px">Duration</div>
+          <div class="dur-body">
+            <div class="dur-big"><span id="durVal">20</span><span> min</span></div>
+            <div class="dur-track" id="durTrack" tabindex="0" role="slider"
+                 aria-label="Session duration" aria-valuemin="1" aria-valuemax="180" aria-valuenow="20">
+              <div class="fill"></div><div class="thumb"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ISOCHRONIC -->
+        <div class="module on">
+          <div class="m-head">
+            <div class="m-title"><span class="led"></span>Isochronic</div>
+            <div class="toggle on" data-toggle="iso"><span class="knob"></span></div>
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-bottom:14px;line-height:1.4">
+            Pulsed tone gated at the beat rate — works on speakers, no headphones needed.
+          </div>
+          <div class="knob-row">
+            <div class="knob-unit">
+              <div class="knob" tabindex="0" role="slider" aria-label="Isochronic volume"
+                   data-knob data-min="0" data-max="100" data-default="45" data-value="45"
+                   data-unit="%" data-step="1" data-bigstep="10">
+                <div class="tick"></div><div class="cap"></div><div class="ind"></div>
+              </div>
+              <div class="knob-label">Volume</div>
+              <div class="knob-val">45%</div>
+            </div>
+            <div class="knob-unit">
+              <div class="knob" tabindex="0" role="slider" aria-label="Isochronic carrier offset"
+                   data-knob data-min="-100" data-max="100" data-default="0" data-value="0"
+                   data-unit=" Hz" data-signed="1" data-step="1" data-bigstep="10">
+                <div class="tick"></div><div class="cap"></div><div class="ind"></div>
+              </div>
+              <div class="knob-label">Offset</div>
+              <div class="knob-val">0 Hz</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- NOISE -->
+        <div class="module on">
+          <div class="m-head">
+            <div class="m-title"><span class="led"></span>Background</div>
+            <div class="toggle on" data-toggle="noise"><span class="knob"></span></div>
+          </div>
+          <div class="seg" data-seg="noise">
+            <button>White</button>
+            <button class="active">Pink</button>
+            <button>Brown</button>
+          </div>
+          <div class="knob-row" style="margin-top:16px">
+            <div class="knob-unit">
+              <div class="knob" tabindex="0" role="slider" aria-label="Noise volume"
+                   data-knob data-min="0" data-max="100" data-default="28" data-value="28"
+                   data-unit="%" data-step="1" data-bigstep="10">
+                <div class="tick"></div><div class="cap"></div><div class="ind"></div>
+              </div>
+              <div class="knob-label">Noise vol</div>
+              <div class="knob-val">28%</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <div class="footnote">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 14v-3a8 8 0 0 1 16 0v3"/><rect x="2" y="14" width="5" height="6" rx="2"/><rect x="17" y="14" width="5" height="6" rx="2"/></svg>
+      Binaural beats require headphones. Isochronic + background noise play fine on speakers.
+    </div>
+
+  </div>
+
+<script>
+/* ============================================================
+   Instrument mockup — live UI state (no audio).
+   Every primary control is genuinely interactive:
+   drag / wheel / keyboard, pointer-capture so drags continue
+   outside the element.
+   ============================================================ */
+
+const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+function hexToRgba(hex,a){
+  const n = parseInt(hex.slice(1),16);
+  return 'rgba('+((n>>16)&255)+','+((n>>8)&255)+','+(n&255)+','+a+')';
+}
+
+/* ---- shared app state ---- */
+const state = { beat:10, carrier:131, duration:20 };
+
+/* ---- band mapping by beat frequency ---- */
+function bandFor(hz){
+  if(hz < 4)  return {name:'Delta', desc:'Deep sleep · <4 Hz',   color:'#6b7cff'};
+  if(hz < 8)  return {name:'Theta', desc:'Meditation · 4–8 Hz',  color:'#8f6bff'};
+  if(hz < 14) return {name:'Alpha', desc:'Relaxation · 8–14 Hz', color:'#63e6c9'};
+  if(hz < 30) return {name:'Beta',  desc:'Focus · 14–30 Hz',     color:'#ffb86b'};
+  return              {name:'Gamma',desc:'≥30 Hz',               color:'#ff6b9d'};
+}
+
+/* Beat 0.5..40 Hz -> dial pointer rotation. Sweep 300deg (-150..+150). */
+function beatRot(hz){
+  const t=(clamp(hz,0.5,40)-0.5)/(40-0.5);
+  return -150 + t*300;
+}
+
+/* =========================================================
+   BEAT DIAL (hero) — drives band ring / pointer / shimmer /
+   R-ear readout. Kept in sync no matter what changes it.
+   ========================================================= */
+const beatNum = document.querySelector('.beat-num');
+const bandPill = document.querySelector('.band-pill');
+const bandDesc = document.querySelector('.band-desc');
+const pointer  = document.getElementById('pointer');
+const dial     = document.getElementById('beatDial');
+
+function renderBeat(){
+  const hz = state.beat;
+  const b = bandFor(hz);
+  const whole = Math.floor(hz);
+  const frac = Math.round((hz-whole)*10);
+  beatNum.innerHTML = whole + '<span style="font-size:34px">.'+frac+'</span>';
+  beatNum.style.color = b.color;
+  bandPill.textContent = b.name;
+  bandPill.style.color = b.color;
+  bandPill.style.borderColor = b.color;
+  bandPill.style.background = hexToRgba(b.color,.08);
+  bandDesc.textContent = b.desc;
+  pointer.setAttribute('transform','rotate('+beatRot(hz).toFixed(1)+' 180 180)');
+  dial.setAttribute('aria-valuenow', hz.toFixed(1));
+
+  // Pulse-ring behaviour:
+  //  - hz >= 8 : smooth continuous shimmer (elegant, never strobes)
+  //  - hz <  8 : discrete "blooms" — ring flashes once per beat (legible)
+  const smooth = hz >= 8;
+  document.querySelectorAll('.shimmer').forEach(s=>{ s.style.display = smooth?'block':'none'; });
+  const ring = document.querySelector('.pulse-ring');
+  if(!smooth){
+    ring.style.setProperty('--bloom',(1/hz).toFixed(3)+'s');
+    ring.classList.add('bloom-mode');
+    // tint the discrete bloom to the active band colour
+    ring.style.setProperty('--bloom-color', hexToRgba(b.color,.35));
+  } else {
+    ring.classList.remove('bloom-mode');
+  }
+  renderCarrier(); // keep R-ear (carrier + beat) in sync
+}
+
+function setBeat(hz, keepPreset){
+  state.beat = clamp(Math.round(hz*10)/10, 0.5, 40);
+  renderBeat();
+  if(!keepPreset){
+    // clear preset highlight unless a preset explicitly set it
+    document.querySelectorAll('.keycap').forEach(x=>x.classList.remove('active'));
+  }
+}
+
+/* angular drag: pointer angle around dial centre maps onto the 300deg sweep */
+function angleToBeat(cx,cy,x,y){
+  let deg = Math.atan2(x-cx, cy-y) * 180/Math.PI; // 0 at top, +cw
+  deg = clamp(deg, -150, 150);
+  const t = (deg + 150)/300;
+  return 0.5 + t*(40-0.5);
+}
+
+(function initDial(){
+  let dragging=false;
+  dial.addEventListener('pointerdown', e=>{
+    dragging=true; dial.classList.add('dragging');
+    dial.setPointerCapture(e.pointerId);
+    updateFromEvent(e);
+    e.preventDefault();
+  });
+  dial.addEventListener('pointermove', e=>{ if(dragging) updateFromEvent(e); });
+  const stop=e=>{ dragging=false; dial.classList.remove('dragging');
+    try{ dial.releasePointerCapture(e.pointerId); }catch(_){} };
+  dial.addEventListener('pointerup', stop);
+  dial.addEventListener('pointercancel', stop);
+
+  function updateFromEvent(e){
+    const r = dial.getBoundingClientRect();
+    setBeat(angleToBeat(r.left+r.width/2, r.top+r.height/2, e.clientX, e.clientY));
+  }
+
+  dial.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const step = e.shiftKey ? 0.1 : 0.5;
+    setBeat(state.beat + (e.deltaY<0 ? step : -step));
+  }, {passive:false});
+
+  dial.addEventListener('keydown', e=>{
+    const big = e.shiftKey ? 5 : 0.5;
+    if(e.key==='ArrowUp'||e.key==='ArrowRight'){ setBeat(state.beat+big); e.preventDefault(); }
+    else if(e.key==='ArrowDown'||e.key==='ArrowLeft'){ setBeat(state.beat-big); e.preventDefault(); }
+    else if(e.key==='Home'){ setBeat(0.5); e.preventDefault(); }
+    else if(e.key==='End'){ setBeat(40); e.preventDefault(); }
+  });
+  dial.addEventListener('dblclick', ()=> setBeat(10));
+})();
+
+/* =========================================================
+   CARRIER vertical fader — 50..500 Hz. Updates readout + ears.
+   ========================================================= */
+const carrierVal = document.getElementById('carrierVal');
+const earL = document.getElementById('earL');
+const earR = document.getElementById('earR');
+const cSlider = document.getElementById('carrierSlider');
+const cFill = cSlider.querySelector('.fill');
+const cThumb = cSlider.querySelector('.thumb');
+
+function renderCarrier(){
+  const c = state.carrier;
+  const t = (c-50)/(500-50);             // 0..1
+  const pct = (t*100).toFixed(1)+'%';
+  cFill.style.height = pct;
+  cThumb.style.bottom = pct;
+  carrierVal.textContent = Math.round(c);
+  earL.textContent = Math.round(c);
+  earR.textContent = Math.round(c + state.beat);
+  cSlider.setAttribute('aria-valuenow', Math.round(c));
+}
+function setCarrier(hz){ state.carrier = clamp(Math.round(hz),50,500); renderCarrier(); }
+
+(function initCarrier(){
+  let dragging=false;
+  cSlider.addEventListener('pointerdown', e=>{
+    dragging=true; cSlider.classList.add('dragging');
+    cSlider.setPointerCapture(e.pointerId); updateFromEvent(e); e.preventDefault();
+  });
+  cSlider.addEventListener('pointermove', e=>{ if(dragging) updateFromEvent(e); });
+  const stop=e=>{ dragging=false; cSlider.classList.remove('dragging');
+    try{ cSlider.releasePointerCapture(e.pointerId); }catch(_){} };
+  cSlider.addEventListener('pointerup', stop);
+  cSlider.addEventListener('pointercancel', stop);
+
+  function updateFromEvent(e){
+    const r = cSlider.getBoundingClientRect();
+    const t = clamp((r.bottom - e.clientY)/r.height, 0, 1);
+    setCarrier(50 + t*(500-50));
+  }
+  cSlider.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const step = e.shiftKey ? 1 : 5;
+    setCarrier(state.carrier + (e.deltaY<0 ? step : -step));
+  }, {passive:false});
+  cSlider.addEventListener('keydown', e=>{
+    const big = e.shiftKey ? 25 : 5;
+    if(e.key==='ArrowUp'||e.key==='ArrowRight'){ setCarrier(state.carrier+big); e.preventDefault(); }
+    else if(e.key==='ArrowDown'||e.key==='ArrowLeft'){ setCarrier(state.carrier-big); e.preventDefault(); }
+    else if(e.key==='Home'){ setCarrier(50); e.preventDefault(); }
+    else if(e.key==='End'){ setCarrier(500); e.preventDefault(); }
+  });
+  cSlider.addEventListener('dblclick', ()=> setCarrier(131));
+})();
+
+/* =========================================================
+   DURATION — 1..180 min horizontal track.
+   ========================================================= */
+const durVal = document.getElementById('durVal');
+const durTrack = document.getElementById('durTrack');
+const durFill = durTrack.querySelector('.fill');
+const durThumb = durTrack.querySelector('.thumb');
+const timerTotal = document.querySelector('.timer .total');
+
+function renderDuration(){
+  const m = state.duration;
+  const t = (m-1)/(180-1);
+  const pct = (t*100).toFixed(1)+'%';
+  durFill.style.width = pct;
+  durThumb.style.left = pct;
+  durVal.textContent = m;
+  durTrack.setAttribute('aria-valuenow', m);
+  if(timerTotal) timerTotal.textContent = 'of '+String(m).padStart(2,'0')+':00 · descending to Theta';
+}
+function setDuration(m){ state.duration = clamp(Math.round(m),1,180); renderDuration(); }
+
+(function initDuration(){
+  let dragging=false;
+  durTrack.addEventListener('pointerdown', e=>{
+    dragging=true; durTrack.classList.add('dragging');
+    durTrack.setPointerCapture(e.pointerId); updateFromEvent(e); e.preventDefault();
+  });
+  durTrack.addEventListener('pointermove', e=>{ if(dragging) updateFromEvent(e); });
+  const stop=e=>{ dragging=false; durTrack.classList.remove('dragging');
+    try{ durTrack.releasePointerCapture(e.pointerId); }catch(_){} };
+  durTrack.addEventListener('pointerup', stop);
+  durTrack.addEventListener('pointercancel', stop);
+
+  function updateFromEvent(e){
+    const r = durTrack.getBoundingClientRect();
+    const t = clamp((e.clientX - r.left)/r.width, 0, 1);
+    setDuration(1 + t*(180-1));
+  }
+  durTrack.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const step = e.shiftKey ? 1 : 5;
+    setDuration(state.duration + (e.deltaY<0 ? step : -step));
+  }, {passive:false});
+  durTrack.addEventListener('keydown', e=>{
+    const big = e.shiftKey ? 15 : 1;
+    if(e.key==='ArrowUp'||e.key==='ArrowRight'){ setDuration(state.duration+big); e.preventDefault(); }
+    else if(e.key==='ArrowDown'||e.key==='ArrowLeft'){ setDuration(state.duration-big); e.preventDefault(); }
+    else if(e.key==='Home'){ setDuration(1); e.preventDefault(); }
+    else if(e.key==='End'){ setDuration(180); e.preventDefault(); }
+  });
+  durTrack.addEventListener('dblclick', ()=> setDuration(20));
+})();
+
+/* =========================================================
+   ROTARY KNOBS — vertical drag, wheel, keyboard, dblclick reset.
+   ~270deg sweep (-135..+135). Signed knobs show +/- Hz.
+   ========================================================= */
+document.querySelectorAll('.knob[data-knob]').forEach(initKnob);
+
+function initKnob(knob){
+  const min = parseFloat(knob.dataset.min);
+  const max = parseFloat(knob.dataset.max);
+  const def = parseFloat(knob.dataset.default);
+  const unit = knob.dataset.unit || '';
+  const signed = knob.dataset.signed === '1';
+  const step = parseFloat(knob.dataset.step||'1');
+  const bigstep = parseFloat(knob.dataset.bigstep||'10');
+  const ind = knob.querySelector('.ind');
+  const label = knob.closest('.knob-unit').querySelector('.knob-val');
+  let value = parseFloat(knob.dataset.value);
+
+  function fmt(v){
+    if(signed){ return (v>0?'+':'') + Math.round(v) + unit; } // "+18 Hz" / "0 Hz" / "-40 Hz"
+    return Math.round(v) + unit;
+  }
+  function render(){
+    const t = (value-min)/(max-min);      // 0..1
+    const rot = -135 + t*270;
+    ind.style.transform = 'translateX(-50%) rotate('+rot+'deg)';
+    label.textContent = fmt(value);
+    knob.setAttribute('aria-valuenow', Math.round(value));
+    knob.setAttribute('aria-valuetext', fmt(value));
+  }
+  function set(v){ value = clamp(v, min, max); render(); }
+
+  knob.setAttribute('aria-valuemin', min);
+  knob.setAttribute('aria-valuemax', max);
+  render();
+
+  // vertical drag: ~200px travel = full range
+  let dragging=false, startY=0, startV=0;
+  knob.addEventListener('pointerdown', e=>{
+    dragging=true; startY=e.clientY; startV=value;
+    knob.classList.add('dragging');
+    knob.setPointerCapture(e.pointerId);
+    knob.focus();
+    e.preventDefault();
+  });
+  knob.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const range = max-min;
+    const sensitivity = (e.shiftKey ? 0.25 : 1) * range/200; // fine control w/ Shift
+    set(startV + (startY - e.clientY)*sensitivity);
+  });
+  const stop=e=>{ dragging=false; knob.classList.remove('dragging');
+    try{ knob.releasePointerCapture(e.pointerId); }catch(_){} };
+  knob.addEventListener('pointerup', stop);
+  knob.addEventListener('pointercancel', stop);
+
+  knob.addEventListener('wheel', e=>{
+    e.preventDefault();
+    const s = e.shiftKey ? step : Math.max(step, (max-min)/50);
+    set(value + (e.deltaY<0 ? s : -s));
+  }, {passive:false});
+
+  knob.addEventListener('keydown', e=>{
+    if(e.key==='ArrowUp'||e.key==='ArrowRight'){ set(value + (e.shiftKey?bigstep:step)); e.preventDefault(); }
+    else if(e.key==='ArrowDown'||e.key==='ArrowLeft'){ set(value - (e.shiftKey?bigstep:step)); e.preventDefault(); }
+    else if(e.key==='Home'){ set(min); e.preventDefault(); }
+    else if(e.key==='End'){ set(max); e.preventDefault(); }
+    else if(e.key==='PageUp'){ set(value+bigstep); e.preventDefault(); }
+    else if(e.key==='PageDown'){ set(value-bigstep); e.preventDefault(); }
+  });
+
+  knob.addEventListener('dblclick', ()=> set(def));
+}
+
+/* =========================================================
+   PRESET KEYS — set the beat (and move the dial).
+   ========================================================= */
+document.querySelectorAll('.keycap').forEach(k=>{
+  k.addEventListener('click',()=>{
+    document.querySelectorAll('.keycap').forEach(x=>x.classList.remove('active'));
+    k.classList.add('active');
+    setBeat(parseFloat(k.dataset.beat), true); // keep this preset highlighted
+  });
+});
+
+/* ---- toggles ---- */
+document.querySelectorAll('.toggle').forEach(t=>{
+  t.addEventListener('click',()=>{
+    t.classList.toggle('on');
+    const mod = t.closest('.module');
+    if(mod) mod.classList.toggle('on', t.classList.contains('on'));
+  });
+});
+
+/* ---- segmented selectors (noise type) ---- */
+document.querySelectorAll('.seg').forEach(seg=>{
+  seg.querySelectorAll('button').forEach(b=>{
+    b.addEventListener('click',()=>{
+      seg.querySelectorAll('button').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+});
+
+/* ---- fine tick marks around dial face ---- */
+(function(){
+  const g = document.getElementById('ticks');
+  const cx=180, cy=180, r0=118, r1=r0-7;
+  for(let i=0;i<=40;i++){
+    const ang = (-150 + (i/40)*300) * Math.PI/180;
+    const long = i%5===0;
+    const rr1 = long ? r0-11 : r1;
+    const x0 = cx + Math.sin(ang)*r0;
+    const y0 = cy - Math.cos(ang)*r0;
+    const x1 = cx + Math.sin(ang)*rr1;
+    const y1 = cy - Math.cos(ang)*rr1;
+    const ln = document.createElementNS('http://www.w3.org/2000/svg','line');
+    ln.setAttribute('x1',x0.toFixed(1)); ln.setAttribute('y1',y0.toFixed(1));
+    ln.setAttribute('x2',x1.toFixed(1)); ln.setAttribute('y2',y1.toFixed(1));
+    ln.setAttribute('stroke', long ? '#7f8ac0' : '#4a5488');
+    ln.setAttribute('stroke-width', long ? '1.8':'1');
+    g.appendChild(ln);
+  }
+})();
+
+/* ---- initialise: 10 Hz Alpha, 131 Hz carrier, 20 min ---- */
+document.querySelector('.keycap[data-beat="10"]').classList.add('active');
+setBeat(10, true);
+setCarrier(131);
+setDuration(20);
+</script>
+
+<style>
+  /* discrete-bloom mode: single pulse per beat (used < ~8 Hz). Kept subtle. */
+  .pulse-ring.bloom-mode::after{
+    content:"";position:absolute;inset:0;border-radius:50%;
+    box-shadow:0 0 0 2px rgba(99,230,201,.0);
+    -webkit-mask:radial-gradient(circle, transparent 0 150px, #000 150px 168px, transparent 168px);
+            mask:radial-gradient(circle, transparent 0 150px, #000 150px 168px, transparent 168px);
+    background:radial-gradient(circle, var(--bloom-color, rgba(99,230,201,.35)), rgba(99,230,201,0) 70%);
+    animation:bloom var(--bloom,1s) ease-out infinite;
+  }
+  @keyframes bloom{ 0%{opacity:.9;transform:scale(.98)} 40%{opacity:0} 100%{opacity:0} }
+</style>
+</body>
+</html>
