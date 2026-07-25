@@ -250,6 +250,34 @@
     </div>
   </div>
 
+  <!-- ISOCHRONIC PULSE -->
+  <div class="panel span2" style="margin-top:18px">
+    <h2>Isochronic pulse</h2>
+    <div class="toggle-row">
+      <input type="checkbox" id="isoOn">
+      <label for="isoOn">Add an audible isochronic pulse (a tone gated on/off at the beat rate)</label>
+    </div>
+    <div id="isoPanel" class="fade">
+      <div style="color:var(--muted);font-size:13px;margin-bottom:12px">
+        Unlike the binaural beat, this pulse is <strong>directly audible</strong> — a rhythmic
+        throb at the beat frequency that works even without headphones. It follows beat-frequency
+        drift automatically.
+      </div>
+      <label class="field">
+        <div class="row"><span class="name">Isochronic volume</span><span class="val"><span id="v-isoVol">40</span><small>%</small></span></div>
+        <input type="range" id="isoVol" min="0" max="100" step="1" value="40">
+      </label>
+      <label class="field">
+        <div class="row"><span class="name">Carrier offset</span><span class="val"><span id="v-isoOff">0</span> <small>Hz</small></span></div>
+        <input type="range" id="isoOffset" min="-100" max="100" step="1" value="0">
+      </label>
+      <div style="color:var(--muted);font-size:12px">
+        Offset shifts the pulse tone relative to the binaural carrier so the two are tonally
+        distinct (e.g. −31 Hz → a lower, separate pitch). 0 = same pitch as the carrier.
+      </div>
+    </div>
+  </div>
+
   <!-- BACKGROUND SOUND -->
   <div class="grid" style="margin-top:18px">
     <div class="panel">
@@ -368,6 +396,11 @@
         type: $('noiseType').value,
         vol:  +$('noiseVol').value/100,
       },
+      iso:{
+        on:     $('isoOn').checked,
+        offset: +$('isoOffset').value,   // iso carrier = carrier + offset (Hz)
+        vol:    +$('isoVol').value/100,
+      },
     };
   }
 
@@ -385,6 +418,9 @@
     if(cd.shape)$('cShape').value=cd.shape; if(cd.plateaus!=null)$('cPlateaus').value=cd.plateaus;
     const n=c.noise||{}; $('noiseOn').checked=!!n.on;
     if(n.type)$('noiseType').value=n.type; if(n.vol!=null){$('noiseVol').value=Math.round(n.vol*100);$('v-nvol').textContent=$('noiseVol').value;}
+    const iso=c.iso||{}; $('isoOn').checked=!!iso.on;
+    if(iso.offset!=null){$('isoOffset').value=iso.offset;$('v-isoOff').textContent=iso.offset;}
+    if(iso.vol!=null){$('isoVol').value=Math.round(iso.vol*100);$('v-isoVol').textContent=$('isoVol').value;}
     syncFades(); refreshReadout(); drawGraph();
   }
 
@@ -403,7 +439,8 @@
   // ================= AUDIO ENGINE =================
   let ctx=null, master=null, toneGain=null, noiseGain=null,
       leftOsc=null, rightOsc=null, leftPan=null, rightPan=null, noiseSrc=null,
-      carrierSrc=null, beatSrc=null;   // ConstantSourceNodes summed into osc frequency
+      carrierSrc=null, beatSrc=null,   // ConstantSourceNodes summed into osc frequency
+      isoOsc=null, isoGate=null, isoVolGain=null, gateLFO=null, gateDepth=null, isoOffsetSrc=null;  // isochronic layer
   const FADE = 0.5;          // start/stop fade seconds
   let session = null;        // {cfg, durationSec, startTime, endFade}
   let playing=false, paused=false, rafId=null, tickId=null;
@@ -510,6 +547,58 @@
     noiseSrc=null; noiseGain=null;
   }
 
+  // Isochronic layer: a sine tone gated on/off at the beat rate. The gate is a
+  // sine LFO whose frequency is driven by the SAME beatSrc as the binaural pair,
+  // so the pulse rate tracks beat drift and live edits for free. The gate gain is
+  // a raised cosine (0.5 + 0.5·sin) so it reaches 0 at the troughs without any
+  // hard on/off edge -> no clicks. iso carrier = carrier + offset, so it can be
+  // pitched apart from the binaural tone. Mirrors spawnNoise's envelope handling.
+  function spawnIso(offset, vol, tStart, fadeStart, tEnd){
+    isoOsc = ctx.createOscillator();  isoOsc.type='sine';  isoOsc.frequency.value = 0;
+    isoOffsetSrc = ctx.createConstantSource();  isoOffsetSrc.offset.value = offset;
+    carrierSrc.connect(isoOsc.frequency);        // follows the (possibly drifting) carrier
+    isoOffsetSrc.connect(isoOsc.frequency);      // + offset
+    isoGate = ctx.createGain();  isoGate.gain.value = 0.5;             // raised-cosine DC base
+    gateLFO = ctx.createOscillator();  gateLFO.type='sine';  gateLFO.frequency.value = 0;
+    beatSrc.connect(gateLFO.frequency);          // pulse rate == beat, drift and all
+    gateDepth = ctx.createGain();  gateDepth.gain.value = 0.5;         // swing -> gain 0..1
+    gateLFO.connect(gateDepth).connect(isoGate.gain);
+    isoVolGain = ctx.createGain();  isoVolGain.gain.value = 0;
+    isoOsc.connect(isoGate).connect(isoVolGain).connect(master);
+    isoOffsetSrc.start(tStart);  isoOsc.start(tStart);  gateLFO.start(tStart);
+    const tIn = tStart + FADE;
+    isoVolGain.gain.setValueAtTime(0, tStart);
+    if(fadeStart > tIn){
+      isoVolGain.gain.linearRampToValueAtTime(vol, tIn);
+      isoVolGain.gain.setValueAtTime(vol, fadeStart);
+    } else {
+      isoVolGain.gain.linearRampToValueAtTime(vol, Math.min(Math.max(tStart, tEnd-0.01), tIn));
+    }
+    isoVolGain.gain.linearRampToValueAtTime(0.0001, tEnd);
+    isoOsc.stop(tEnd+0.05);  gateLFO.stop(tEnd+0.05);  isoOffsetSrc.stop(tEnd+0.05);
+  }
+
+  function startIsoLive(){
+    if(!ctx || !session || isoOsc) return;
+    const now = ctx.currentTime;
+    const tEnd = session.startTime + session.durationSec;
+    if(now >= tEnd) return;
+    const fadeStart = Math.max(session.startTime + FADE, tEnd - session.endFade);
+    spawnIso(+$('isoOffset').value, +$('isoVol').value/100, now, fadeStart, tEnd);
+  }
+
+  function stopIsoLive(){
+    if(!isoOsc) return;
+    const now = ctx.currentTime;
+    try{
+      isoVolGain.gain.cancelScheduledValues(now);
+      isoVolGain.gain.setValueAtTime(Math.max(0.0001, isoVolGain.gain.value), now);
+      isoVolGain.gain.linearRampToValueAtTime(0.0001, now+0.3);
+      isoOsc.stop(now+0.35);  gateLFO.stop(now+0.35);  isoOffsetSrc.stop(now+0.35);
+    }catch(e){}
+    isoOsc=isoGate=isoVolGain=gateLFO=gateDepth=isoOffsetSrc=null;
+  }
+
   function scheduleFrequencies(cfg, t0, durationSec){
     // Each source is scheduled independently: a value-curve when that parameter
     // drifts, a constant otherwise. carrierAt/beatAt already return the constant
@@ -560,6 +649,7 @@
     toneGain.gain.linearRampToValueAtTime(0.0001, tEnd);
 
     if(cfg.noise.on) spawnNoise(cfg.noise.type, cfg.noise.vol, t0, fadeStart, tEnd);
+    if(cfg.iso.on)   spawnIso(cfg.iso.offset, cfg.iso.vol, t0, fadeStart, tEnd);
     leftOsc.stop(tEnd+0.05); rightOsc.stop(tEnd+0.05);
     carrierSrc.stop(tEnd+0.05); beatSrc.stop(tEnd+0.05);
 
@@ -581,6 +671,7 @@
     const dying=ctx;
     setTimeout(()=>{ try{ dying&&dying.close(); }catch(e){} }, 60);
     ctx=null; master=toneGain=noiseGain=leftOsc=rightOsc=noiseSrc=carrierSrc=beatSrc=null;
+    isoOsc=isoGate=isoVolGain=gateLFO=gateDepth=isoOffsetSrc=null;
     const wasManual=manualStop;
     playing=false; paused=false; session=null;
     $('pauseBtn').textContent='❚❚ Pause';
@@ -615,9 +706,11 @@
       toneGain.gain.setValueAtTime(Math.max(0.0001,toneGain.gain.value), now);
       toneGain.gain.linearRampToValueAtTime(0.0001, now+0.3);
       if(noiseGain){ noiseGain.gain.cancelScheduledValues(now); noiseGain.gain.setValueAtTime(Math.max(0.0001,noiseGain.gain.value), now); noiseGain.gain.linearRampToValueAtTime(0.0001, now+0.3); }
+      if(isoVolGain){ isoVolGain.gain.cancelScheduledValues(now); isoVolGain.gain.setValueAtTime(Math.max(0.0001,isoVolGain.gain.value), now); isoVolGain.gain.linearRampToValueAtTime(0.0001, now+0.3); }
       leftOsc.stop(now+0.35); rightOsc.stop(now+0.35);
       carrierSrc.stop(now+0.35); beatSrc.stop(now+0.35);
       if(noiseSrc) noiseSrc.stop(now+0.35);
+      if(isoOsc){ isoOsc.stop(now+0.35); gateLFO.stop(now+0.35); isoOffsetSrc.stop(now+0.35); }
     }catch(e){ onEnded(); }
   }
 
@@ -784,6 +877,7 @@
     $('driftPanel').classList.toggle('fade', !$('driftOn').checked);
     $('carrierDriftPanel').classList.toggle('fade', !$('carrierDriftOn').checked);
     $('noisePanel').classList.toggle('fade', !$('noiseOn').checked);
+    $('isoPanel').classList.toggle('fade', !$('isoOn').checked);
     // a slider is inert while ITS parameter is drifting (curve is pre-scheduled)
     $('beat-field').classList.toggle('fade', $('driftOn').checked);
     // presets set the beat, so they're inert while beat drift owns it
@@ -796,6 +890,8 @@
   $('beat').addEventListener('input', e=>{ $('v-beat').textContent=(+e.target.value).toFixed(1); refreshReadout(); drawGraph(); liveRetune(); });
   $('volume').addEventListener('input', e=>{ $('v-vol').textContent=e.target.value; if(master) master.gain.setTargetAtTime(+e.target.value/100, ctx.currentTime, 0.05); });
   $('noiseVol').addEventListener('input', e=>{ $('v-nvol').textContent=e.target.value; if(noiseGain && session) noiseGain.gain.setTargetAtTime(+e.target.value/100, ctx.currentTime, 0.05); });
+  $('isoVol').addEventListener('input', e=>{ $('v-isoVol').textContent=e.target.value; if(isoVolGain && session) isoVolGain.gain.setTargetAtTime(+e.target.value/100, ctx.currentTime, 0.05); });
+  $('isoOffset').addEventListener('input', e=>{ $('v-isoOff').textContent=e.target.value; if(isoOffsetSrc && session) isoOffsetSrc.offset.setTargetAtTime(+e.target.value, ctx.currentTime, 0.02); });
   $('duration').addEventListener('input', ()=>{ drawGraph(); const s=clamp(+$('duration').value||1,1,180)*60; updateTimer(s,s); });
 
   ['driftStart','driftEnd','driftShape','plateaus','cStart','cEnd','cShape','cPlateaus'].forEach(id=>{
@@ -810,6 +906,10 @@
   });
   $('noiseType').addEventListener('change', ()=>{
     if(session && $('noiseOn').checked){ stopNoiseLive(); startNoiseLive(); }
+  });
+  $('isoOn').addEventListener('change', ()=>{
+    syncFades();
+    if(session){ $('isoOn').checked ? startIsoLive() : stopIsoLive(); }
   });
 
   // Live retune during playback. Each parameter is editable whenever ITS OWN

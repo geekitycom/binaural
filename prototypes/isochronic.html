@@ -1,0 +1,183 @@
+<!doctype html>
+<!--
+  PROTOTYPE (captured reference). Not wired into the app — kept to document how the
+  isochronic layer was validated before it shipped in index.html. Open standalone.
+
+  Design question it answered (yes on both): does the raised-sine isochronic gate
+  sound right, and does driving the gate LFO from the SAME beatSrc as the binaural
+  pair keep the pulse rate locked to drift/live changes without clicking?
+
+  Key graph (the thing being validated):
+    isoOsc (sine) -> isoGate (GainNode, gated) -> isoVolGain -> master
+    gateLFO (freq intrinsic 0) <- beatSrc   <-- the reuse; pulse rate == beat
+    gateLFO -> gateDepthGain(B) -> isoGate.gain (DC base A)   => gain = A + B*wave
+  So the binaural beat and the isochronic pulse are the SAME beatSrc value; a
+  single ramp on beatSrc.offset drifts both at once.
+-->
+<html>
+<head>
+<meta charset="utf-8">
+<title>Isochronic gate — prototype</title>
+<style>
+  body{font:14px -apple-system,system-ui,sans-serif;background:#0e1226;color:#e7ecff;margin:0;padding:24px;max-width:640px}
+  h1{font-size:18px} h2{font-size:14px;color:#9fb0ff;margin:22px 0 8px;text-transform:uppercase;letter-spacing:.06em}
+  .row{display:flex;align-items:center;gap:12px;margin:8px 0}
+  .row label{flex:0 0 150px;color:#b9c2e8}
+  input[type=range]{flex:1}
+  .val{flex:0 0 90px;text-align:right;font-variant-numeric:tabular-nums;color:#63e6c9}
+  button{background:#2a366b;color:#e7ecff;border:1px solid #3a4a8a;border-radius:8px;padding:9px 16px;cursor:pointer;font-size:14px}
+  button:hover{background:#35438a} button.primary{background:#4f6bff;border-color:#4f6bff}
+  select{background:#1a2247;color:#e7ecff;border:1px solid #3a4a8a;border-radius:6px;padding:6px}
+  .readout{font-variant-numeric:tabular-nums;background:#151b38;border:1px solid #26305a;border-radius:10px;padding:12px 16px;margin-top:8px;line-height:1.7}
+  .readout b{color:#ffb86b} small{color:#7d88b5}
+  .note{color:#7d88b5;font-size:12px;margin-top:4px}
+</style>
+</head>
+<body>
+<h1>Isochronic gate — prototype <small style="color:#7d88b5">(throwaway)</small></h1>
+
+<div class="row">
+  <button id="play" class="primary">▶ Play</button>
+  <button id="stop">■ Stop</button>
+  <button id="drift">Drift beat 15 → 10 over 8s</button>
+  <button id="driftUp">↩ back to 15 over 8s</button>
+</div>
+<div class="note">Headphones recommended for the binaural layer; the isochronic pulse is audible on speakers too.</div>
+
+<div class="readout" id="readout">stopped</div>
+
+<h2>Shared</h2>
+<div class="row"><label>Carrier (Hz)</label><input id="carrier" type="range" min="50" max="500" step="1" value="131"><span class="val" id="v-carrier">131</span></div>
+<div class="row"><label>Beat / pulse (Hz)</label><input id="beat" type="range" min="0.5" max="40" step="0.1" value="10"><span class="val" id="v-beat">10.0</span></div>
+<div class="row"><label>Master vol</label><input id="master" type="range" min="0" max="1" step="0.01" value="0.6"><span class="val" id="v-master">0.60</span></div>
+
+<h2>Binaural layer</h2>
+<div class="row"><label>Binaural vol</label><input id="binVol" type="range" min="0" max="1" step="0.01" value="0.5"><span class="val" id="v-binVol">0.50</span></div>
+<div class="note">Left = carrier, Right = carrier + beat. Silent-but-present; drag to 0 to solo the isochronic layer.</div>
+
+<h2>Isochronic layer</h2>
+<div class="row"><label>Isochronic vol</label><input id="isoVol" type="range" min="0" max="1" step="0.01" value="0.5"><span class="val" id="v-isoVol">0.50</span></div>
+<div class="row"><label>Carrier offset (Hz)</label><input id="isoOff" type="range" min="-100" max="100" step="1" value="0"><span class="val" id="v-isoOff">0</span></div>
+<div class="row"><label>Gate shape</label>
+  <select id="shape"><option value="sine" selected>sine (raised cosine)</option><option value="triangle">triangle (linear ramp)</option><option value="square">square (hard — will click)</option></select>
+</div>
+<div class="row"><label>Pulse depth</label><input id="depth" type="range" min="0" max="1" step="0.01" value="1"><span class="val" id="v-depth">1.00</span></div>
+<div class="note">Depth 1 = full on/off pulsing; lower = shallower "tremolo". Try shape = square at full depth to hear why we don't hard-cut.</div>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+let ctx=null, nodes=null, raf=null;
+
+// current UI values
+const V = () => ({
+  carrier:+$('carrier').value, beat:+$('beat').value, master:+$('master').value,
+  binVol:+$('binVol').value, isoVol:+$('isoVol').value, isoOff:+$('isoOff').value,
+  shape:$('shape').value, depth:+$('depth').value,
+});
+
+// gate gain = A + B*wave, wave in [-1,1], swings between (1-depth) and 1
+const gateAB = depth => { const min=1-depth; return {A:(1+min)/2, B:(1-min)/2}; };
+
+function start(){
+  if(ctx) return;
+  const v=V();
+  ctx = new (window.AudioContext||window.webkitAudioContext)();
+  const t0=ctx.currentTime, FADE=0.4;
+
+  const master = ctx.createGain(); master.gain.value=v.master; master.connect(ctx.destination);
+
+  // shared frequency sources (this is the app's existing pattern)
+  const carrierSrc = ctx.createConstantSource(); carrierSrc.offset.value=v.carrier;
+  const beatSrc    = ctx.createConstantSource(); beatSrc.offset.value=v.beat;
+
+  // ---- binaural pair ----
+  const binGain = ctx.createGain(); binGain.gain.value=0; binGain.connect(master);
+  const leftOsc=ctx.createOscillator(), rightOsc=ctx.createOscillator();
+  leftOsc.frequency.value=0; rightOsc.frequency.value=0;      // driven by constant sources
+  const leftPan=new StereoPannerNode(ctx,{pan:-1}), rightPan=new StereoPannerNode(ctx,{pan:1});
+  carrierSrc.connect(leftOsc.frequency);
+  carrierSrc.connect(rightOsc.frequency); beatSrc.connect(rightOsc.frequency);   // right = carrier+beat
+  leftOsc.connect(leftPan).connect(binGain);
+  rightOsc.connect(rightPan).connect(binGain);
+  binGain.gain.linearRampToValueAtTime(v.binVol, t0+FADE);
+
+  // ---- isochronic layer ----
+  const isoOffsetSrc = ctx.createConstantSource(); isoOffsetSrc.offset.value=v.isoOff;
+  const isoOsc = ctx.createOscillator(); isoOsc.frequency.value=0;                // driven below
+  carrierSrc.connect(isoOsc.frequency); isoOffsetSrc.connect(isoOsc.frequency);   // iso carrier = carrier + offset
+
+  const {A,B} = gateAB(v.depth);
+  const isoGate = ctx.createGain(); isoGate.gain.value=A;                         // DC base
+  const gateLFO = ctx.createOscillator(); gateLFO.type=v.shape; gateLFO.frequency.value=0;
+  beatSrc.connect(gateLFO.frequency);                                             // <-- THE REUSE: pulse rate == beat
+  const gateDepth = ctx.createGain(); gateDepth.gain.value=B;
+  gateLFO.connect(gateDepth).connect(isoGate.gain);                              // gain = A + B*wave
+
+  const isoVolGain = ctx.createGain(); isoVolGain.gain.value=0; isoVolGain.connect(master);
+  isoOsc.connect(isoGate).connect(isoVolGain);
+  isoVolGain.gain.linearRampToValueAtTime(v.isoVol, t0+FADE);
+
+  [carrierSrc,beatSrc,isoOffsetSrc,leftOsc,rightOsc,isoOsc,gateLFO].forEach(n=>n.start(t0));
+  nodes = {master,carrierSrc,beatSrc,isoOffsetSrc,binGain,isoVolGain,isoGate,gateDepth,gateLFO,
+           osc:[carrierSrc,beatSrc,isoOffsetSrc,leftOsc,rightOsc,isoOsc,gateLFO]};
+  loop();
+}
+
+function stop(){
+  if(!ctx) return;
+  const t=ctx.currentTime, dead=ctx;
+  nodes.master.gain.cancelScheduledValues(t);
+  nodes.master.gain.setValueAtTime(Math.max(0.0001,nodes.master.gain.value),t);
+  nodes.master.gain.linearRampToValueAtTime(0.0001, t+0.3);
+  nodes.osc.forEach(n=>n.stop(t+0.35));
+  setTimeout(()=>{ try{dead.close();}catch(e){} }, 500);
+  ctx=null; nodes=null;
+  if(raf) cancelAnimationFrame(raf); raf=null;
+  $('readout').textContent='stopped';
+}
+
+// live retune while playing — everything glides, no clicks
+function retune(){
+  if(!ctx) return; const v=V(), t=ctx.currentTime, T=0.02;
+  nodes.carrierSrc.offset.setTargetAtTime(v.carrier,t,T);
+  nodes.beatSrc.offset.setTargetAtTime(v.beat,t,T);          // drives BOTH binaural beat and pulse rate
+  nodes.isoOffsetSrc.offset.setTargetAtTime(v.isoOff,t,T);
+  nodes.master.gain.setTargetAtTime(v.master,t,0.05);
+  nodes.binGain.gain.setTargetAtTime(v.binVol,t,0.05);
+  nodes.isoVolGain.gain.setTargetAtTime(v.isoVol,t,0.05);
+  const {A,B}=gateAB(v.depth);
+  nodes.isoGate.gain.setTargetAtTime(A,t,0.05);
+  nodes.gateDepth.gain.setTargetAtTime(B,t,0.05);
+  nodes.gateLFO.type=v.shape;                                // oscillator.type is settable live
+}
+
+function drift(to,secs){
+  if(!ctx) return; const t=ctx.currentTime;
+  nodes.beatSrc.offset.cancelScheduledValues(t);
+  nodes.beatSrc.offset.setValueAtTime(nodes.beatSrc.offset.value,t);
+  nodes.beatSrc.offset.linearRampToValueAtTime(to, t+secs);  // one ramp drifts binaural + pulse together
+}
+
+function loop(){
+  raf=requestAnimationFrame(loop);
+  if(!ctx) return;
+  const beat=nodes.beatSrc.offset.value, car=nodes.carrierSrc.offset.value, off=nodes.isoOffsetSrc.offset.value;
+  $('readout').innerHTML =
+    `<b>beat / pulse:</b> ${beat.toFixed(2)} Hz &nbsp; <small>(binaural L/R = ${Math.round(car)} / ${Math.round(car+beat)} Hz)</small><br>`+
+    `<b>iso carrier:</b> ${Math.round(car+off)} Hz &nbsp; <small>(carrier ${Math.round(car)} ${off>=0?'+':'−'} ${Math.abs(off)})</small> &nbsp; shape: ${$('shape').value}, depth ${(+$('depth').value).toFixed(2)}`;
+  // keep beat slider label honest during a drift
+  $('v-beat').textContent = beat.toFixed(1);
+}
+
+// wiring
+$('play').onclick=start; $('stop').onclick=stop;
+$('drift').onclick=()=>drift(10,8); $('driftUp').onclick=()=>drift(15,8);
+[['carrier','v-carrier',0],['beat','v-beat',1],['master','v-master',2],['binVol','v-binVol',2],
+ ['isoVol','v-isoVol',2],['isoOff','v-isoOff',0],['depth','v-depth',2]].forEach(([id,lbl,dp])=>{
+  $(id).addEventListener('input',e=>{ $(lbl).textContent=(+e.target.value).toFixed(dp); retune(); });
+});
+$('shape').addEventListener('change',retune);
+</script>
+</body>
+</html>
