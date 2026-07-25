@@ -4,8 +4,10 @@ A web-based binaural beat generator — a free, self-contained alternative to
 Holosync-style meditation/focus programs. Entirely client-side: no backend, no build
 step, no dependencies, no tracking. The whole app is a single file, `index.html`.
 
-> **Headphones required.** A binaural beat only exists when each ear hears a slightly
-> different tone. Over speakers the two tones mix in the air and the effect cancels.
+> **Headphones required** for the binaural beat — it only exists when each ear hears a
+> slightly different tone; over speakers the two mix in the air and the effect cancels.
+> (The optional isochronic pulse is the exception: it's an audible modulation that works
+> on speakers too.)
 
 ## What it is
 
@@ -63,6 +65,15 @@ Put on headphones, pick a preset or dial in a beat frequency, and press **Play**
 - Can be toggled on/off and switched between types live during a session, all fades
   click-free.
 
+**Isochronic pulse**
+
+- Optional second entrainment layer: a sine tone gated on/off at the beat frequency,
+  producing a **directly audible** rhythmic pulse (unlike the binaural beat, which is a
+  subtle phantom). Works without headphones.
+- Independent volume, plus a carrier offset so the pulse can sit at a different pitch from
+  the binaural tone. Default off; toggle it on/off live mid-session.
+- Follows beat-frequency drift automatically — the pulse rate is always the current beat.
+
 **Visuals**
 
 - A pulsing circle synced to the current beat frequency, colored by band — animates at
@@ -101,6 +112,8 @@ carrierSrc (ConstantSource) -> leftOsc.frequency  \  leftOsc  (sine) -> leftPan 
                             \-> rightOsc.frequency  } rightOsc (sine) -> rightPan (pan +1) --> toneGain (fade env) -> master (vol) -> destination
 beatSrc    (ConstantSource) -> rightOsc.frequency /
 noiseSrc   (looped buffer)  -> noiseGain (indep) ---------------------------------------------> master
+isoOsc (sine, carrier+offset) -> isoGate (gated) -> isoVolGain (indep) -----------------------> master
+gateLFO (sine) <- beatSrc ;  gateLFO -> isoGate.gain    (raised-cosine gate at the beat rate)
 ```
 
 Frequencies are **not** set on the oscillators directly. Both `leftOsc.frequency` and
@@ -122,7 +135,8 @@ export/import and `localStorage` JSON shape:
 { carrier, beat, volume(0..1), duration(min),
   drift{on,start,end,shape,plateaus},
   carrierDrift{on,start,end,shape,plateaus},
-  noise{on,type,vol(0..1)}, name? }
+  noise{on,type,vol(0..1)},
+  iso{on,offset,vol(0..1)}, name? }
 ```
 
 ### Click-free audio via AudioParam scheduling
@@ -144,6 +158,11 @@ assignment mid-playback:
   param, which is exactly the collision the two-node design avoids.
 - The `stepped` drift shape smooths each plateau-to-plateau transition (smoothstep over
   the last 35% of each plateau) so there are no vertical jumps.
+- **Isochronic gate** — a sine LFO whose frequency is driven by the _same_ `beatSrc` as
+  the binaural pair, feeding a raised-cosine (`0.5 + 0.5·sin`) gain envelope. Because it
+  reads `beatSrc`, the pulse rate tracks drift and live edits with no extra scheduling,
+  and the smooth envelope reaches zero at the troughs without any click. The iso carrier
+  is `carrierSrc + isoOffsetSrc`, so it follows carrier drift and can be pitched apart.
 
 ### End-of-session runs on the audio clock
 
