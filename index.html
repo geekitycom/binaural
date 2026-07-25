@@ -155,7 +155,7 @@
     <!-- BASIC CONTROLS -->
     <div class="panel">
       <h2>Tone</h2>
-      <label class="field">
+      <label class="field" id="carrier-field">
         <div class="row"><span class="name">Carrier frequency</span><span class="val"><span id="v-carrier">100</span> <small>Hz</small></span></div>
         <input type="range" id="carrier" min="50" max="500" step="1" value="100">
       </label>
@@ -400,7 +400,8 @@
 
   // ================= AUDIO ENGINE =================
   let ctx=null, master=null, toneGain=null, noiseGain=null,
-      leftOsc=null, rightOsc=null, leftPan=null, rightPan=null, noiseSrc=null;
+      leftOsc=null, rightOsc=null, leftPan=null, rightPan=null, noiseSrc=null,
+      carrierSrc=null, beatSrc=null;   // ConstantSourceNodes summed into osc frequency
   const FADE = 0.5;          // start/stop fade seconds
   let session = null;        // {cfg, durationSec, startTime, endFade}
   let playing=false, paused=false, rafId=null, tickId=null;
@@ -444,35 +445,93 @@
     leftOsc.connect(leftPan).connect(toneGain);
     rightOsc.connect(rightPan).connect(toneGain);
 
-    if(cfg.noise.on){
-      noiseSrc = ctx.createBufferSource();
-      noiseSrc.buffer = makeNoiseBuffer(cfg.noise.type);
-      noiseSrc.loop = true;
-      noiseGain = ctx.createGain();
-      noiseGain.gain.value = 0;
-      noiseSrc.connect(noiseGain).connect(master);
+    // Frequency is driven entirely by two ConstantSourceNodes summed into each
+    // oscillator's .frequency param (intrinsic value 0). This keeps carrier and
+    // beat independently controllable: carrier drives BOTH ears, beat only the
+    // right ear, so left = carrier, right = carrier + beat. Because each lives on
+    // its own node, a live edit to one never collides with a drift value-curve
+    // running on the other (which raw .frequency scheduling could not allow).
+    leftOsc.frequency.value = 0;
+    rightOsc.frequency.value = 0;
+    carrierSrc = ctx.createConstantSource();  carrierSrc.offset.value = cfg.carrier;
+    beatSrc    = ctx.createConstantSource();  beatSrc.offset.value    = cfg.beat;
+    carrierSrc.connect(leftOsc.frequency);
+    carrierSrc.connect(rightOsc.frequency);
+    beatSrc.connect(rightOsc.frequency);
+  }
+
+  // Create + start a looped noise source and schedule its full envelope: fade in
+  // from tStart, hold at vol, then fade out to the session end (tEnd). Works both
+  // at session start and when toggled on live mid-session (tStart = now).
+  function spawnNoise(type, vol, tStart, fadeStart, tEnd){
+    noiseSrc = ctx.createBufferSource();
+    noiseSrc.buffer = makeNoiseBuffer(type);
+    noiseSrc.loop = true;
+    noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0;
+    noiseSrc.connect(noiseGain).connect(master);
+    noiseSrc.start(tStart);
+    const tIn = tStart + FADE;
+    noiseGain.gain.setValueAtTime(0, tStart);
+    if(fadeStart > tIn){
+      noiseGain.gain.linearRampToValueAtTime(vol, tIn);
+      noiseGain.gain.setValueAtTime(vol, fadeStart);
+    } else {
+      // little/no room left before the session's end fade: ramp in quickly
+      noiseGain.gain.linearRampToValueAtTime(vol, Math.min(Math.max(tStart, tEnd-0.01), tIn));
     }
+    noiseGain.gain.linearRampToValueAtTime(0.0001, tEnd);
+    noiseSrc.stop(tEnd + 0.05);
+  }
+
+  // Start the noise layer mid-session (checkbox toggled on while playing).
+  function startNoiseLive(){
+    if(!ctx || !session || noiseSrc) return;
+    const now = ctx.currentTime;
+    const tEnd = session.startTime + session.durationSec;
+    if(now >= tEnd) return;
+    const fadeStart = Math.max(session.startTime + FADE, tEnd - session.endFade);
+    spawnNoise($('noiseType').value, +$('noiseVol').value/100, now, fadeStart, tEnd);
+  }
+
+  // Stop the noise layer mid-session, click-free, and release the nodes so it can
+  // be re-enabled and so teardown paths don't try to stop it twice.
+  function stopNoiseLive(){
+    if(!noiseSrc) return;
+    const now = ctx.currentTime;
+    try{
+      noiseGain.gain.cancelScheduledValues(now);
+      noiseGain.gain.setValueAtTime(Math.max(0.0001, noiseGain.gain.value), now);
+      noiseGain.gain.linearRampToValueAtTime(0.0001, now+0.3);
+      noiseSrc.stop(now+0.35);
+    }catch(e){}
+    noiseSrc=null; noiseGain=null;
   }
 
   function scheduleFrequencies(cfg, t0, durationSec){
-    const drifting = cfg.drift.on || cfg.carrierDrift.on;
-    if(!drifting){
-      leftOsc.frequency.setValueAtTime(cfg.carrier, t0);
-      rightOsc.frequency.setValueAtTime(cfg.carrier + cfg.beat, t0);
-      return;
+    // Each source is scheduled independently: a value-curve when that parameter
+    // drifts, a constant otherwise. carrierAt/beatAt already return the constant
+    // when their drift is off, but scheduling constants directly keeps the param
+    // free for live setTargetAtTime edits (no curve in the way).
+    if(cfg.carrierDrift.on){
+      carrierSrc.offset.setValueCurveAtTime(sampleCurve(f=>carrierAt(cfg,f), durationSec), t0, durationSec);
+    } else {
+      carrierSrc.offset.setValueAtTime(cfg.carrier, t0);
     }
-    // sample the curve; setValueCurveAtTime interpolates linearly -> no zipper noise
+    if(cfg.drift.on){
+      beatSrc.offset.setValueCurveAtTime(sampleCurve(f=>beatAt(cfg,f), durationSec), t0, durationSec);
+    } else {
+      beatSrc.offset.setValueAtTime(cfg.beat, t0);
+    }
+  }
+
+  // sample a frac->value function into a Float32Array for setValueCurveAtTime;
+  // linear interpolation between points -> no audible stepping / zipper noise
+  function sampleCurve(fn, durationSec){
     const steps = clamp(Math.round(durationSec*2), 32, 20000);
-    const L = new Float32Array(steps+1);
-    const R = new Float32Array(steps+1);
-    for(let i=0;i<=steps;i++){
-      const frac=i/steps;
-      const car=carrierAt(cfg,frac);
-      const bt =beatAt(cfg,frac);
-      L[i]=car; R[i]=car+bt;
-    }
-    leftOsc.frequency.setValueCurveAtTime(L, t0, durationSec);
-    rightOsc.frequency.setValueCurveAtTime(R, t0, durationSec);
+    const arr = new Float32Array(steps+1);
+    for(let i=0;i<=steps;i++) arr[i]=fn(i/steps);
+    return arr;
   }
 
   function startAudio(){
@@ -487,6 +546,7 @@
     const fadeStart = Math.max(t0+FADE, tEnd-endFade);
 
     scheduleFrequencies(cfg, t0, durationSec);
+    carrierSrc.start(t0); beatSrc.start(t0);
     leftOsc.start(t0); rightOsc.start(t0);
 
     // clean fade-in, then a pre-scheduled fade-out at the end — all on the audio
@@ -497,15 +557,9 @@
     toneGain.gain.setValueAtTime(1, fadeStart);
     toneGain.gain.linearRampToValueAtTime(0.0001, tEnd);
 
-    if(noiseSrc){
-      noiseSrc.start(t0);
-      noiseGain.gain.setValueAtTime(0, t0);
-      noiseGain.gain.linearRampToValueAtTime(cfg.noise.vol, t0+FADE);
-      noiseGain.gain.setValueAtTime(cfg.noise.vol, fadeStart);
-      noiseGain.gain.linearRampToValueAtTime(0.0001, tEnd);
-      noiseSrc.stop(tEnd+0.05);
-    }
+    if(cfg.noise.on) spawnNoise(cfg.noise.type, cfg.noise.vol, t0, fadeStart, tEnd);
     leftOsc.stop(tEnd+0.05); rightOsc.stop(tEnd+0.05);
+    carrierSrc.stop(tEnd+0.05); beatSrc.stop(tEnd+0.05);
 
     ended=false; manualStop=false;
     leftOsc.onended = onEnded;   // fires on the audio thread regardless of tab focus
@@ -523,7 +577,7 @@
     if(tickId) clearInterval(tickId); tickId=null;
     const dying=ctx;
     setTimeout(()=>{ try{ dying&&dying.close(); }catch(e){} }, 60);
-    ctx=null; master=toneGain=noiseGain=leftOsc=rightOsc=noiseSrc=null;
+    ctx=null; master=toneGain=noiseGain=leftOsc=rightOsc=noiseSrc=carrierSrc=beatSrc=null;
     const wasManual=manualStop;
     playing=false; paused=false; session=null;
     $('pauseBtn').textContent='❚❚ Pause';
@@ -554,6 +608,7 @@
       toneGain.gain.linearRampToValueAtTime(0.0001, now+0.3);
       if(noiseGain){ noiseGain.gain.cancelScheduledValues(now); noiseGain.gain.setValueAtTime(Math.max(0.0001,noiseGain.gain.value), now); noiseGain.gain.linearRampToValueAtTime(0.0001, now+0.3); }
       leftOsc.stop(now+0.35); rightOsc.stop(now+0.35);
+      carrierSrc.stop(now+0.35); beatSrc.stop(now+0.35);
       if(noiseSrc) noiseSrc.stop(now+0.35);
     }catch(e){ onEnded(); }
   }
@@ -717,7 +772,9 @@
     $('driftPanel').classList.toggle('fade', !$('driftOn').checked);
     $('carrierDriftPanel').classList.toggle('fade', !$('carrierDriftOn').checked);
     $('noisePanel').classList.toggle('fade', !$('noiseOn').checked);
-    $('beat-field').classList.toggle('fade', $('driftOn').checked); // beat slider inert during drift
+    // a slider is inert while ITS parameter is drifting (curve is pre-scheduled)
+    $('beat-field').classList.toggle('fade', $('driftOn').checked);
+    $('carrier-field').classList.toggle('fade', $('carrierDriftOn').checked);
   }
 
   // range <-> label live wiring
@@ -730,19 +787,33 @@
   ['driftStart','driftEnd','driftShape','plateaus','cStart','cEnd','cShape','cPlateaus'].forEach(id=>{
     $(id).addEventListener('input', ()=>{ drawGraph(); refreshReadout(); });
   });
-  ['driftOn','carrierDriftOn','noiseOn'].forEach(id=>{
+  ['driftOn','carrierDriftOn'].forEach(id=>{
     $(id).addEventListener('change', ()=>{ syncFades(); drawGraph(); refreshReadout(); });
   });
-  $('noiseType').addEventListener('change', ()=>{});
+  $('noiseOn').addEventListener('change', ()=>{
+    syncFades(); drawGraph(); refreshReadout();
+    if(session){ $('noiseOn').checked ? startNoiseLive() : stopNoiseLive(); }
+  });
+  $('noiseType').addEventListener('change', ()=>{
+    if(session && $('noiseOn').checked){ stopNoiseLive(); startNoiseLive(); }
+  });
 
-  // live retune only meaningful when playing WITHOUT drift
+  // Live retune during playback. Each parameter is editable whenever ITS OWN
+  // drift is off — carrier stays adjustable even while beat drift runs, and vice
+  // versa — because carrier and beat live on separate ConstantSourceNodes.
+  // A drifting parameter's slider is inert (faded, pointer-events:none), so its
+  // running value-curve is never disturbed.
   function liveRetune(){
-    if(!ctx||!leftOsc||!session) return;
-    if(session.cfg.drift.on||session.cfg.carrierDrift.on) return; // drift is pre-scheduled; ignore
-    const car=+$('carrier').value, bt=+$('beat').value, now=ctx.currentTime;
-    leftOsc.frequency.linearRampToValueAtTime(car, now+0.03);
-    rightOsc.frequency.linearRampToValueAtTime(car+bt, now+0.03);
-    session.cfg.carrier=car; session.cfg.beat=bt;
+    if(!ctx||!carrierSrc||!session) return;
+    const now=ctx.currentTime, cfg=session.cfg;
+    if(!cfg.carrierDrift.on){
+      cfg.carrier=+$('carrier').value;
+      carrierSrc.offset.setTargetAtTime(cfg.carrier, now, 0.02); // ~click-free glide
+    }
+    if(!cfg.drift.on){
+      cfg.beat=+$('beat').value;
+      beatSrc.offset.setTargetAtTime(cfg.beat, now, 0.02);
+    }
   }
 
   // presets

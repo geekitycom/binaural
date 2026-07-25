@@ -41,8 +41,10 @@ Drift (session progression):
 - Default "Relaxation descent" preset button: Alpha 10 Hz → Theta 5 Hz over 20 min, ease.
 - Planned-curve `<canvas>` graph: shaded brainwave-band zones behind the beat curve,
   dashed secondary line for carrier drift, live position marker during playback.
-- While beat drift is enabled the beat slider is visually disabled (curve is
-  pre-scheduled; live beat edits are ignored during a drift session — see below).
+- While a parameter is drifting its own slider is visually disabled (curve is
+  pre-scheduled). The OTHER slider stays live: e.g. during a beat drift you can still
+  adjust the carrier while playing, and during a carrier drift you can still adjust the
+  beat — see design decision #1.
 
 Visuals:
 - Pulsing circle canvas synced to the current beat frequency (amplitude-envelope pulse),
@@ -50,7 +52,8 @@ Visuals:
 
 Extras (all working):
 - Background noise layer: white / pink (Paul Kellet filter) / brown, looped 4s buffer,
-  independent volume, scaled by master.
+  independent volume, scaled by master. Can be toggled on/off, switched type, and
+  re-leveled live during a session (all fades click-free).
 - Save named sessions to `localStorage` (key `binaural.presets.v1`); load / delete.
 - Export current config to JSON (downloads a file AND fills the textarea).
 - Import from the textarea (paste) or from a file. Round-trip verified.
@@ -60,12 +63,21 @@ Extras (all working):
 1. **Click-free audio is a hard requirement and is handled by AudioParam scheduling
    only — never raw value assignment mid-playback.**
    - Start: 0.5 s (`FADE`) gain fade-in on `toneGain` from 0→1.
-   - Drift: `setValueCurveAtTime` on each oscillator's `frequency` param, sampling the
-     planned curve at ~2 points/sec (clamped 32..20000). Linear interpolation between
-     points = no audible stepping / zipper noise.
-   - Non-drift live retune (moving carrier/beat sliders while playing): uses
-     `linearRampToValueAtTime` over 30 ms.
+   - Carrier/beat run on separate `ConstantSourceNode`s (`carrierSrc`/`beatSrc`) whose
+     `.offset` drives the oscillator `frequency` params (see "Audio graph"). Drift is
+     `setValueCurveAtTime` on the relevant offset — `carrierSrc.offset` for carrier
+     drift, `beatSrc.offset` for beat drift — sampling the planned curve at ~2 points/sec
+     (clamped 32..20000) via `sampleCurve()`. Linear interpolation = no zipper noise.
+   - Live retune (moving a slider while playing) uses `setTargetAtTime` (~0.02 s) on the
+     corresponding offset. Because carrier and beat are on separate nodes, EACH is
+     editable live whenever ITS OWN drift is off — carrier stays adjustable during a beat
+     drift, and vice versa. A drifting parameter's slider is faded
+     (`pointer-events:none`) so its running value-curve is never disturbed. This split is
+     deliberate: you cannot `linearRamp`/`setTarget` over a `setValueCurveAtTime` running
+     on the same param, which is exactly the collision the two-node design avoids.
    - Volume/noise-volume live changes use `setTargetAtTime`.
+   - Background noise can be toggled on/off and switched type live mid-session
+     (`startNoiseLive`/`stopNoiseLive`/`spawnNoise`), each fade being click-free.
    - `stepped` drift shape deliberately smooths each plateau-to-plateau transition
      (smoothstep over the last 35% of each plateau) so there are no vertical jumps.
 
@@ -102,10 +114,17 @@ Extras (all working):
 ## Audio graph
 
 ```
-leftOsc  (sine, freq=carrier)       -> leftPan  (pan -1) -\
-rightOsc (sine, freq=carrier+beat)  -> rightPan (pan +1) --> toneGain (fade env) -> master (vol) -> destination
-noiseSrc (looped buffer)            -> noiseGain (indep) --------------------------> master
+carrierSrc (ConstantSource) -> leftOsc.frequency  \  leftOsc  (sine) -> leftPan  (pan -1) -\
+                            \-> rightOsc.frequency  } rightOsc (sine) -> rightPan (pan +1) --> toneGain (fade env) -> master (vol) -> destination
+beatSrc    (ConstantSource) -> rightOsc.frequency /
+noiseSrc   (looped buffer)  -> noiseGain (indep) ---------------------------------------------> master
 ```
+
+Frequency is NOT set on the oscillators directly. Both `leftOsc.frequency` and
+`rightOsc.frequency` have intrinsic value 0 and are driven by two `ConstantSourceNode`s
+summed in: `carrierSrc` feeds both ears (so left = carrier), `beatSrc` feeds only the
+right ear (so right = carrier + beat). This is what makes carrier and beat independently
+controllable at runtime — see design decision #1.
 
 - `master.gain` = master volume (also scales noise).
 - `toneGain` = fade-in / fade-out envelope for the tones (starts at 0).
