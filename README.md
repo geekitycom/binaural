@@ -79,10 +79,15 @@ type it) plus a live SVG **timeline**:
   staircase), and a plateau count for the stepped shape.
 - Handles may cross — a descent (10→5) shows a ↓ cue; the timeline curve and Hz axis
   update live.
-- The timeline draws shaded brainwave-band zones, the real beat curve (sampled from the
-  same model the audio plays, not a decorative approximation), a dashed carrier
-  reference line, a live playhead during playback, and two draggable **endpoint
-  handles** two-way bound to the beat dual slider.
+- The timeline plots **absolute frequency (Hz)** on the Y axis: a **left-ear line**
+  (`carrier`) and a **right-ear line** (`carrier + beat`), both sampled from the same
+  model the audio plays (not a decorative approximation). The **gap** between the lines
+  _is_ the beat, filled with a ribbon colored by the beat's brainwave band at each moment
+  (so it recolors along time as the beat crosses band thresholds). A live playhead rides
+  both lines during playback.
+- **Both drifts are draggable on the graph:** the right-ear endpoints set **beat drift**
+  (start/end) — two-way bound to the beat dual slider — and the left-ear endpoints set
+  **carrier drift**, so turning on carrier drift slopes the left line right on the axis.
 - While a parameter is drifting its slider is inert (the curve is pre-scheduled), but
   during playback it tracks the live curve value; the _other_ parameter stays live-editable.
 
@@ -113,7 +118,7 @@ Beat frequency, as classified by `band()`:
 | Beta  | < 30       | focus               |
 | Gamma | ≥ 30       | —                   |
 
-The timeline's band-zone shading uses Delta <4, Theta 4–8, Alpha 8–14, Beta 14–30, Gamma ≥30.
+The timeline's gap-ribbon coloring uses Delta <4, Theta 4–8, Alpha 8–14, Beta 14–30, Gamma ≥30.
 
 ## Architecture
 
