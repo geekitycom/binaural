@@ -10,4 +10,4 @@
 
 [build.environment]
   # Pin an LTS Node so CI builds match a known-good toolchain (Vite 5 needs 18+).
-  NODE_VERSION = "20"
+  NODE_VERSION = "24"
