@@ -7,11 +7,19 @@
  * ==========================================================================*/
 
 * { box-sizing: border-box; }
-html, body { margin: 0; padding: 0; }
+html, body {
+  margin: 0; padding: 0;
+  /* The page itself never pans sideways (the timeline scrolls inside its own
+     .tl-wrap). Stops the "whole page shifts left/right" wobble on touch. */
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
 body {
   background: var(--surface); color: var(--text); font-family: var(--sans);
   font-size: 13px; line-height: 1.4; -webkit-font-smoothing: antialiased;
   padding-bottom: 40px;
+  /* Kill the 300ms double-tap-to-zoom on touch; taps register immediately. */
+  touch-action: manipulation;
 }
 .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 h1, h2, h3, h4 { margin: 0; font-weight: 600; }
@@ -181,6 +189,9 @@ a:focus-visible,
 .slider {
   -webkit-appearance: none; appearance: none; height: 4px; border-radius: 3px; flex: 1;
   background: var(--border); outline: none;
+  /* Horizontal drags move the thumb (not the page); vertical swipes still scroll
+     the page. Without this a slider drag pans the whole page sideways on touch. */
+  touch-action: pan-y;
 }
 .slider::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none; width: 13px; height: 13px; border-radius: 50%;
@@ -441,4 +452,36 @@ a:focus-visible,
 @media (max-width: 480px) {
   .brand .sub { display: none; }
   .legend { gap: 8px 10px; }
+
+  /* ---- Touch sizing: larger text + finger-friendly targets on phones ---- */
+  body { font-size: 14.5px; }
+
+  /* Sliders: taller track, bigger thumb, and a taller row so the whole strip is
+     a comfortable drag target. */
+  .slider { height: 6px; }
+  .slider::-webkit-slider-thumb { width: 24px; height: 24px; }
+  .slider::-moz-range-thumb { width: 24px; height: 24px; }
+  .vol { gap: 10px; min-height: 40px; }
+  .vol .vlab { font-size: 12px; width: 34px; }
+  .vol .vval { font-size: 13px; width: 48px; }
+  .vol .vval[role="button"] { padding: 4px 6px; }
+  .tonectl .vlab { width: 56px; font-size: 11px; }
+
+  /* Dual-handle drift slider: bigger drag handles + readouts. */
+  .dhandle { width: 26px; height: 26px; margin-left: -13px; }
+  .dtrack { height: 7px; }
+  .dnum, .dnum input { font-size: 15px; }
+
+  /* Transport + control buttons hit ~44px, Apple's min touch target. */
+  .tbtn { width: 44px; height: 44px; }
+  .tbtn svg { width: 18px; height: 18px; }
+  .seg button { padding: 10px 12px; font-size: 13px; }
+  .preset { padding: 9px 12px; font-size: 12.5px; }
+  .ms.pow { min-height: 30px; padding: 0 11px; font-size: 12px; }
+  .lhint { width: 20px; height: 20px; font-size: 12px; }
+
+  /* Live readout tiles + labels a touch larger for legibility. */
+  .ro .v { font-size: 16px; }
+  .ro .k { font-size: 10px; }
+  .layer .lname { font-size: 15px; }
 }
