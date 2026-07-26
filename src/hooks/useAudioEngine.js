@@ -139,6 +139,7 @@ export function EngineProvider({ children }) {
   // ---- config -> engine forwarding (the ONLY forwarding path) ----
   // Each effect is scoped to one slice; the engine method self-guards when not
   // playing / while a param is drifting. None of these call engine.start().
+  useConfigForward(config.tone.mode, (v) => engineRef.current.setToneMode(v));
   useConfigForward(config.tone.carrier, (v) => engineRef.current.setCarrier(v));
   useConfigForward(config.tone.beat, (v) => engineRef.current.setBeat(v));
   useConfigForward(config.tone.vol, (v) => engineRef.current.setLayerVol('tone', v));

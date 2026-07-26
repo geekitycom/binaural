@@ -52,8 +52,16 @@ Put on headphones, pick a preset or dial in a beat frequency, and press **Play**
 **Per-layer mixer** — three independent layers, each with its own volume slider and a
 **Power** (ON/OFF) toggle, like tracks in a DAW:
 
-- **Binaural tone** — carrier (50–500 Hz) and beat (0.5–40 Hz), with its own volume. May
-  be powered off entirely.
+- **Binaural / Monaural tone** — carrier (50–500 Hz) and beat (0.5–40 Hz), with its own
+  volume. May be powered off entirely. A **mode** switch chooses how the two tones are
+  placed:
+  - **Binaural** (default) hard-pans the carrier to the left ear and carrier+beat to the
+    right — the beat is a phantom percept, so **headphones are required**.
+  - **Monaural** sums both tones to center in both ears, so they physically beat. This is
+    **audible on speakers** (no headphones), produces a stronger neural response (Oster),
+    and stays clean in **gamma**, where binaural perception degrades above ~30 Hz.
+  Switching modes mid-session just ramps the two pan positions, click-free; the layer
+  header relabels **Binaural tone ↔ Monaural tone** to match.
 - **Isochronic pulse** — a directly-audible sine tone gated on/off at the beat rate
   (works on speakers, no headphones needed), with its own volume and a carrier offset so
   it can sit at a different pitch. Default off.
@@ -67,8 +75,11 @@ the drift controls) are **click-to-edit** — click a value and type an exact nu
 and live readouts of carrier, beat, left/right Hz, and the current brainwave band
 (a color-coded pill).
 
-**Brainwave presets** — Delta / Theta / Alpha / Beta buttons set the **beat** frequency.
-Disabled while beat drift is active (the drift owns the beat then).
+**Brainwave presets** — Delta / Theta / Alpha / Beta / Gamma buttons set the **beat**
+frequency. **Gamma** (40 Hz) also flips the tone to **Monaural**, since binaural beats
+degrade above ~30 Hz — the honest way to deliver a gamma beat. Disabled while beat drift
+is active (the drift owns the beat then). Dialing the beat into gamma while still in
+binaural mode surfaces an inline hint to switch to Monaural or add the isochronic pulse.
 
 **Frequency drift (session progression)** — gradually move a frequency across the
 session, edited with a **dual-handle slider** (drag either end, or click a number to
@@ -196,6 +207,12 @@ right ear (so right = carrier + beat). This split is what lets the carrier and b
 scheduled/edited independently without value-curve collisions. (`carrierSrc` also drives
 `isoOsc.frequency`, alongside `isoOffsetSrc`.)
 
+The two `StereoPannerNode`s implement the **binaural/monaural** mode: binaural pans
+`leftPan`/`rightPan` to −1/+1 (one tone per ear, phantom beat); monaural pans both to 0
+so the tones sum into one physically-beating signal (works on speakers). `setToneMode()`
+ramps the two pan params (`setTargetAtTime`, ~0.02 s) so the switch is click-free and the
+node graph is otherwise unchanged.
+
 Each layer routes through its own gain chain: `source → envelopeGain → layerVolGain →
 master`. `master` is pinned at unity (headroom only) — there is **no** master volume;
 every layer carries its own volume.
@@ -253,7 +270,7 @@ The saved / exported JSON shape:
 
 ```
 { name?, duration,                            // duration in minutes (1–180)
-  tone:  { on, carrier, beat, vol },
+  tone:  { on, mode, carrier, beat, vol },     // mode: 'binaural' | 'monaural'
   drift: { on, start, end, shape, plateaus },
   carrierDrift: { on, start, end, shape, plateaus },
   iso:   { on, offset, vol },
@@ -262,7 +279,8 @@ The saved / exported JSON shape:
 
 - `clampConfig` / `validate` (`lib/config.js`) fill any missing fields from
   `DEFAULT_CONFIG` and centralize all range clamps (carrier 50–500, beat 0.5–40,
-  duration 1–180, vols 0–1, iso offset −100..100, plateaus 2–12) and never throw.
+  duration 1–180, vols 0–1, iso offset −100..100, plateaus 2–12) plus enum coercion
+  (tone mode binaural/monaural, drift shape, noise type) and never throw.
   This runs on **every** `localStorage` read and **every** import, so partial or
   hand-edited JSON always loads clean.
 

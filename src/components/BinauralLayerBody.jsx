@@ -5,6 +5,12 @@ import { RANGES } from '../lib/config.js';
 import { useEngine } from '../hooks/useAudioEngine.js';
 import { useEngineFrame } from '../hooks/useEngineFrame.js';
 import MixSlider from './MixSlider.jsx';
+import SegControl from './primitives/SegControl.jsx';
+
+const MODE_OPTIONS = [
+  { value: 'binaural', label: 'Binaural' },
+  { value: 'monaural', label: 'Monaural' },
+];
 
 const hz0 = (v) => `${Math.round(v)} Hz`;
 const hz1 = (v) => `${v.toFixed(1)} Hz`;
@@ -35,6 +41,10 @@ export default function BinauralLayerBody() {
   const beatDriven = drift.on;
   const carrierValue = carrierDriven ? carrierDrift.start : tone.carrier;
   const beatValue = beatDriven ? drift.start : tone.beat;
+  const monaural = tone.mode === 'monaural';
+  // Binaural beats degrade above Oster's ~30 Hz limit (gamma). Surface the
+  // tradeoff when the beat sits in gamma but we're still in binaural mode.
+  const gammaWarn = !monaural && beatValue >= 30;
 
   // Refs into the (inert, `driven`) carrier/beat rows so an active drift can
   // mirror the LIVE curve value onto the thumb + value text each frame — purely
@@ -49,6 +59,7 @@ export default function BinauralLayerBody() {
   const onCarrier = useCallback((v) => dispatch(setField('tone.carrier', v)), [dispatch]);
   const onBeat = useCallback((v) => dispatch(setField('tone.beat', v)), [dispatch]);
   const onVol = useCallback((v) => dispatch(setField('tone.vol', v)), [dispatch]);
+  const onMode = useCallback((v) => dispatch(setField('tone.mode', v)), [dispatch]);
 
   useEngineFrame((f) => {
     if (!f.playing) return;
@@ -75,6 +86,13 @@ export default function BinauralLayerBody() {
 
   return (
     <>
+      <SegControl
+        options={MODE_OPTIONS}
+        value={tone.mode}
+        onChange={onMode}
+        style={{ marginBottom: 9 }}
+      />
+
       <div className="tonectl">
         <MixSlider
           className="basetone"
@@ -128,12 +146,25 @@ export default function BinauralLayerBody() {
         />
       </div>
 
-      <div className="badge-hp" style={{ marginTop: 8 }}>
-        <svg width="11" height="11" viewBox="0 0 24 24">
-          <path d="M12 3a9 9 0 00-9 9v5a3 3 0 003 3h1v-7H5v-1a7 7 0 0114 0v1h-2v7h1a3 3 0 003-3v-5a9 9 0 00-9-9z" />
-        </svg>
-        Headphones required
-      </div>
+      {gammaWarn && (
+        <div className="off-hint" style={{ marginTop: 8 }}>
+          Binaural beats fade out above ~30 Hz — for gamma, switch to Monaural or
+          add the Isochronic pulse.
+        </div>
+      )}
+
+      {monaural ? (
+        <div className="off-hint" style={{ marginTop: 8 }}>
+          Both tones summed to center — audible on speakers · no headphones needed
+        </div>
+      ) : (
+        <div className="badge-hp" style={{ marginTop: 8 }}>
+          <svg width="11" height="11" viewBox="0 0 24 24">
+            <path d="M12 3a9 9 0 00-9 9v5a3 3 0 003 3h1v-7H5v-1a7 7 0 0114 0v1h-2v7h1a3 3 0 003-3v-5a9 9 0 00-9-9z" />
+          </svg>
+          Headphones required
+        </div>
+      )}
     </>
   );
 }

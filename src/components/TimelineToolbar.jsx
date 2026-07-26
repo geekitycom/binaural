@@ -4,12 +4,15 @@ import Toggle from './primitives/Toggle.jsx';
 import ColorDot from './primitives/ColorDot.jsx';
 import { cx } from '../lib/cx.js';
 
-// Quick base-beat presets (one representative frequency per band).
+// Quick base-beat presets (one representative frequency per band). Gamma also
+// flips the tone to monaural, since binaural beats degrade above ~30 Hz — the
+// honest way to deliver a 40 Hz beat (see REPORT recs #2/#3).
 const PRESETS = [
   { key: 'delta', label: 'Delta', hz: 2 },
   { key: 'theta', label: 'Theta', hz: 6 },
   { key: 'alpha', label: 'Alpha', hz: 10 },
   { key: 'beta', label: 'Beta', hz: 20 },
+  { key: 'gamma', label: 'Gamma', hz: 40, mode: 'monaural' },
 ];
 
 /**
@@ -34,7 +37,10 @@ export default function TimelineToolbar() {
             type="button"
             className={cx('preset', `p-${p.key}`)}
             disabled={drift.on}
-            onClick={() => dispatch(setField('tone.beat', p.hz))}
+            onClick={() => {
+              dispatch(setField('tone.beat', p.hz));
+              if (p.mode) dispatch(setField('tone.mode', p.mode));
+            }}
           >
             <ColorDot className="pd" color={`var(--band-${p.key})`} />
             <span className="pt">{p.label}</span>

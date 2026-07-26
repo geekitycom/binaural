@@ -83,6 +83,13 @@ export class AudioEngine {
     this.onEnded = null; // ({completed:boolean})
   }
 
+  // Pan positions per tone mode: [leftOsc pan, rightOsc pan].
+  //  binaural -> carrier hard-left, carrier+beat hard-right (phantom beat).
+  //  monaural -> both centered so the two tones sum into one beating signal.
+  static _panForMode(mode) {
+    return mode === 'monaural' ? [0, 0] : [-1, 1];
+  }
+
   // ---------- graph construction ----------
   _buildGraph(cfg) {
     const ctx = this.ctx;
@@ -114,8 +121,13 @@ export class AudioEngine {
     this.leftOsc.type = 'sine';
     this.rightOsc = ctx.createOscillator();
     this.rightOsc.type = 'sine';
-    this.leftPan = new StereoPannerNode(ctx, { pan: -1 });
-    this.rightPan = new StereoPannerNode(ctx, { pan: 1 });
+    // Binaural: hard-pan each tone to one ear (the beat is a phantom percept, so
+    // headphones are required). Monaural: both tones summed at center in both
+    // ears, so they physically beat — audible on speakers, and cleaner in gamma
+    // where binaural perception degrades (Oster's ~30 Hz limit).
+    const [lpan, rpan] = AudioEngine._panForMode(cfg.tone.mode);
+    this.leftPan = new StereoPannerNode(ctx, { pan: lpan });
+    this.rightPan = new StereoPannerNode(ctx, { pan: rpan });
     this.leftOsc.connect(this.leftPan).connect(this.toneEnvGain);
     this.rightOsc.connect(this.rightPan).connect(this.toneEnvGain);
 
@@ -405,6 +417,18 @@ export class AudioEngine {
     if (this.session.cfg.drift.on) return; // inert while drifting
     this.session.cfg.tone.beat = hz;
     this.beatSrc.offset.setTargetAtTime(hz, this.ctx.currentTime, 0.02);
+  }
+
+  // Switch binaural <-> monaural live by ramping the two pan params (short
+  // setTargetAtTime, click-free). The node graph is unchanged — only where each
+  // tone sits in the stereo field.
+  setToneMode(mode) {
+    if (this.session) this.session.cfg.tone.mode = mode;
+    if (!this.ctx || !this.leftPan || !this.rightPan) return;
+    const now = this.ctx.currentTime;
+    const [lpan, rpan] = AudioEngine._panForMode(mode);
+    this.leftPan.pan.setTargetAtTime(lpan, now, 0.02);
+    this.rightPan.pan.setTargetAtTime(rpan, now, 0.02);
   }
 
   setIsoOffset(hz) {

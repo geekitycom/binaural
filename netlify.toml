@@ -1,0 +1,13 @@
+# Netlify build config for the Vite "Session Studio" app.
+# The production build inlines everything into a single self-contained
+# dist/index.html (see vite.config.js); Netlify just runs the build and serves
+# that dist/ directory. No SPA redirect is needed — the app is one static page
+# with no client-side routing.
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  # Pin an LTS Node so CI builds match a known-good toolchain (Vite 5 needs 18+).
+  NODE_VERSION = "20"

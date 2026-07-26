@@ -6,7 +6,7 @@
 //
 // Shape:
 //   { name?, duration,
-//     tone:  { on, carrier, beat, vol },
+//     tone:  { on, mode, carrier, beat, vol },
 //     drift: { on, start, end, shape, plateaus },
 //     carrierDrift: { on, start, end, shape, plateaus },
 //     iso:   { on, offset, vol },
@@ -17,6 +17,7 @@ export const DEFAULT_CONFIG = {
   duration: 20, // minutes
   tone: {
     on: true,
+    mode: 'binaural', // 'binaural' (hard-panned L/R) | 'monaural' (summed, works on speakers)
     carrier: 100,
     beat: 10,
     vol: 0.4,
@@ -58,6 +59,7 @@ export const RANGES = {
 };
 export const SHAPES = ['linear', 'ease', 'stepped'];
 export const NOISE_TYPES = ['white', 'pink', 'brown'];
+export const TONE_MODES = ['binaural', 'monaural'];
 
 // ---------- primitive coercers (never throw) ----------
 const num = (v, fallback) => {
@@ -89,6 +91,7 @@ export function clampConfig(input) {
     duration: clampInt(src.duration, RANGES.duration, D.duration),
     tone: {
       on: 'on' in t ? bool(t.on) : D.tone.on,
+      mode: oneOf(t.mode, TONE_MODES, D.tone.mode),
       carrier: clampNum(t.carrier, RANGES.carrier, D.tone.carrier),
       beat: clampNum(t.beat, RANGES.beat, D.tone.beat),
       vol: clampNum(t.vol, RANGES.vol, D.tone.vol),
