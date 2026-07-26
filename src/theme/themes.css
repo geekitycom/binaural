@@ -1,0 +1,124 @@
+/* ============================================================================
+ * themes.css — per-theme VALUES for every semantic color token (see tokens.css).
+ * The theme runtime (ThemeContext) sets data-theme on <html>; index.html ships
+ * data-theme="dark" so there is never an unstyled flash.
+ *
+ *   [data-theme="dark"]  = mock-2's original "Session Studio" palette, verbatim.
+ *   [data-theme="light"] = a net-new light palette authored to match the dark
+ *                          version's contrast/feel (light surfaces, dark text,
+ *                          the same band hues deepened for legibility on light).
+ * ==========================================================================*/
+
+/* ------------------------------- DARK -------------------------------------- */
+:root[data-theme="dark"] {
+  /* surfaces & structure */
+  --surface: #0e1226;
+  --surface-raised: #151b38;
+  --surface-control: #1a2247;
+  --surface-control-hover: #20295099;
+  --border: #26305a;
+
+  /* text */
+  --text: #e7ecff;
+  --text-muted: #8f9bd0;
+
+  /* accent */
+  --accent: #63e6c9;
+  --accent-deep: #2a8f7a;
+  --accent-darker: #1d6b5b;
+  --accent-border: #3fbfa3;
+  --on-accent: #eafff9;
+  --accent-surface: #12302c;
+  --accent-surface-hover: #173e39;
+  --sess-active-bg: #1a2f2c;
+
+  /* bands */
+  --band-delta: #6b7cff;
+  --band-theta: #8f6bff;
+  --band-alpha: #63e6c9;
+  --band-beta: #ffb86b;
+  --band-gamma: #ff6b9d;
+
+  /* band-tinted surfaces (transport band pill) — mock's bandFor() bg values */
+  --band-delta-surface: #1b1f3d;
+  --band-theta-surface: #221b3d;
+  --band-alpha-surface: #11322c;
+  --band-beta-surface: #33260f;
+  --band-gamma-surface: #331523;
+
+  /* mixer state tints */
+  --danger: #ff6b9d;
+  --pow-on-bg: #1d5a4a;
+  --seg-on-bg: #20345a;
+
+  /* glows, rings & shadows */
+  --glow-accent: rgba(99, 230, 201, 0.4);
+  --glow-accent-med: rgba(99, 230, 201, 0.5);
+  --glow-accent-strong: rgba(99, 230, 201, 0.6);
+  --glow-accent-weak: rgba(99, 230, 201, 0.35);
+  --glow-accent-bright: rgba(99, 230, 201, 0.7);
+  --ring-accent-weak: rgba(99, 230, 201, 0.18);
+  --ring-accent: rgba(99, 230, 201, 0.28);
+  --ring-theta: rgba(143, 107, 255, 0.2);
+  --shadow-ribbon: rgba(0, 0, 0, 0.4);
+  --shadow-handle: rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}
+
+/* ------------------------------- LIGHT ------------------------------------- */
+:root[data-theme="light"] {
+  /* surfaces & structure */
+  --surface: #eef1f8;
+  --surface-raised: #ffffff;
+  --surface-control: #e6eaf5;
+  --surface-control-hover: #dde3f2;
+  --border: #d3d9ea;
+
+  /* text */
+  --text: #1a2138;
+  --text-muted: #5a6485;
+
+  /* accent — teal deepened so it reads on light surfaces */
+  --accent: #1b9e86;
+  --accent-deep: #12796a;
+  --accent-darker: #0e5f54;
+  --accent-border: #1b9e86;
+  --on-accent: #ffffff;
+  --accent-surface: #d6f2ea;
+  --accent-surface-hover: #c3ebe0;
+  --sess-active-bg: #d6f2ea;
+
+  /* bands — same hues, deepened for contrast on light backgrounds */
+  --band-delta: #4657e0;
+  --band-theta: #7b52d6;
+  --band-alpha: #1b9e86;
+  --band-beta: #c07d1f;
+  --band-gamma: #d63f76;
+
+  /* band-tinted surfaces — pale tints of each band hue for light surfaces */
+  --band-delta-surface: #e2e6fb;
+  --band-theta-surface: #ebe3fb;
+  --band-alpha-surface: #d6f2ea;
+  --band-beta-surface: #f6e9d2;
+  --band-gamma-surface: #fbdfe9;
+
+  /* mixer state tints — light tinted fills, darker text */
+  --danger: #d63f76;
+  --pow-on-bg: #cdece4;
+  --seg-on-bg: #d3ddf5;
+
+  /* glows, rings & shadows — accent-derived (rgb 27,158,134) at lower alpha */
+  --glow-accent: rgba(27, 158, 134, 0.35);
+  --glow-accent-med: rgba(27, 158, 134, 0.4);
+  --glow-accent-strong: rgba(27, 158, 134, 0.45);
+  --glow-accent-weak: rgba(27, 158, 134, 0.3);
+  --glow-accent-bright: rgba(27, 158, 134, 0.55);
+  --ring-accent-weak: rgba(27, 158, 134, 0.18);
+  --ring-accent: rgba(27, 158, 134, 0.28);
+  --ring-theta: rgba(123, 82, 214, 0.22);
+  --shadow-ribbon: rgba(30, 40, 80, 0.18);
+  --shadow-handle: rgba(30, 40, 80, 0.25);
+
+  color-scheme: light;
+}

@@ -1,8 +1,10 @@
-# Binaural
+# Binaural — Session Studio
 
 A web-based binaural beat generator — a free, self-contained alternative to
-Holosync-style meditation/focus programs. Entirely client-side: no backend, no build
-step, no dependencies, no tracking. The whole app is a single file, `index.html`.
+Holosync-style meditation/focus programs. Entirely client-side: no backend, no
+accounts, no tracking. It is now a small **Vite + React** app (v2), rebuilt as a
+DAW-style mixer + timeline "Session Studio", while keeping the original,
+carefully-tuned Web Audio engine intact.
 
 > **Headphones required** for the binaural beat — it only exists when each ear hears a
 > slightly different tone; over speakers the two mix in the air and the effect cancels.
@@ -20,70 +22,85 @@ Your brain perceives the difference between the two as a slow pulsing "beat" at 
 frequency, even though neither ear is actually playing it. The beat frequency is what
 maps to the classic brainwave bands (delta/theta/alpha/beta/gamma).
 
-## Running it
+## Running & building
 
-Open `index.html` in any modern browser (Chrome, Firefox, Safari). Web Audio works
-directly from `file://`, so you can just double-click the file — no server needed.
+This version has a build step (Vite). You need Node.js.
+
+```sh
+npm install       # install dependencies (once)
+npm run dev       # start the dev server with HMR (http://localhost:5173)
+npm run build     # produce a self-contained dist/index.html
+npm run preview   # serve the built output locally to sanity-check it
+```
+
+**Single-file output.** The production build uses
+[`vite-plugin-singlefile`](https://github.com/richardtallent/vite-plugin-singlefile) to
+inline **all** JS and CSS into one `dist/index.html` with zero external assets. So even
+though development needs a build step, the delivered artifact is still a single file you
+can **open directly — no server, no dependencies** — preserving the project's original
+"just open one file" property. (See `vite.config.js` for the plugin setup.)
+
+**Legacy app.** The original single-file vanilla-JS app is preserved verbatim as
+[`legacy.html`](legacy.html) — open it in any browser and it still works from `file://`.
+The React version is the maintained one; `legacy.html` is kept for reference.
 
 Put on headphones, pick a preset or dial in a beat frequency, and press **Play**
-(spacebar also toggles play/pause).
+(the **Space** bar also toggles play/pause).
 
 ## Features
 
-**Core tones**
+**Per-layer mixer** — three independent layers, each with its own volume slider and a
+**Power** (ON/OFF) toggle, like tracks in a DAW:
 
-- Carrier frequency (50–500 Hz) and beat frequency (0.5–40 Hz) sliders.
-- Master volume and session duration (1–180 min).
-- Play / Pause / Stop, a counting-down session timer, and a live readout of carrier,
-  beat, left/right Hz, and the current brainwave band (color-coded pill).
+- **Binaural tone** — carrier (50–500 Hz) and beat (0.5–40 Hz), with its own volume. May
+  be powered off entirely.
+- **Isochronic pulse** — a directly-audible sine tone gated on/off at the beat rate
+  (works on speakers, no headphones needed), with its own volume and a carrier offset so
+  it can sit at a different pitch. Default off.
+- **Background noise** — white / pink / brown, with its own volume. Default off.
 
-**Brainwave presets**
+Power is part of the saved config. Any layer can be toggled, switched, or re-leveled
+**live mid-session**, all fades click-free. Numeric readouts on the layer controls (and
+the drift controls) are **click-to-edit** — click a value and type an exact number.
 
-- Delta / Theta / Alpha / Beta buttons set the **beat** frequency (a preset is a
-  brainwave-band choice, which is a beat — it leaves the carrier tone alone).
-- Presets are disabled while beat-frequency drift is active, since the drift owns the
-  beat then.
+**Transport & readouts** — Play / Pause / Stop, a scrub bar, a counting session timer,
+and live readouts of carrier, beat, left/right Hz, and the current brainwave band
+(a color-coded pill).
 
-**Frequency drift (session progression)**
+**Brainwave presets** — Delta / Theta / Alpha / Beta buttons set the **beat** frequency.
+Disabled while beat drift is active (the drift owns the beat then).
 
-- Gradually move the beat frequency across the session. Shapes: `linear`, `ease`
-  (ease-in-out smoothstep), and `stepped` (a plateau staircase with smoothed transitions
-  between steps).
-- Independent carrier-frequency drift with its own start/end/shape/plateaus.
-- A one-click **"Relaxation descent"** preset: beat drifts Alpha 10 Hz → Theta 5 Hz over
-  20 minutes, ease shape (beat only; leaves the carrier untouched).
-- A planned-curve graph shows shaded brainwave-band zones behind the beat curve, a dashed
-  secondary line for carrier drift, and a live position marker during playback.
-- While a parameter is drifting, its slider is inert (the curve is pre-scheduled), but
-  during playback the slider tracks the live curve value so it always reflects reality,
-  then returns to its pre-play value when the session ends. The _other_ slider stays
-  live — e.g. during a beat drift you can still adjust the carrier mid-session.
+**Frequency drift (session progression)** — gradually move a frequency across the
+session, edited with a **dual-handle slider** (drag either end, or click a number to
+type it) plus a live SVG **timeline**:
 
-**Ambient noise layer**
+- Independent **beat drift** and **carrier drift**, each with start/end, a **shape**
+  (`linear`, `ease` = ease-in-out smoothstep, or `stepped` = a smoothed plateau
+  staircase), and a plateau count for the stepped shape.
+- Handles may cross — a descent (10→5) shows a ↓ cue; the timeline curve and Hz axis
+  update live.
+- The timeline draws shaded brainwave-band zones, the real beat curve (sampled from the
+  same model the audio plays, not a decorative approximation), a dashed carrier
+  reference line, a live playhead during playback, and two draggable **endpoint
+  handles** two-way bound to the beat dual slider.
+- **Snap grid** toggle: shows a denser gridline overlay and snaps the timeline endpoint
+  drags to the visible Hz gridlines.
+- While a parameter is drifting its slider is inert (the curve is pre-scheduled), but
+  during playback it tracks the live curve value; the _other_ parameter stays live-editable.
 
-- Optional white / pink / brown noise, with independent volume (scaled by master).
-- Can be toggled on/off and switched between types live during a session, all fades
-  click-free.
+**Timeline & visuals** — the SVG timeline hero is rendered directly (imperatively) so
+60fps painting never touches the React reconciler.
 
-**Isochronic pulse**
+**Sessions & config** — save named sessions to `localStorage`; load or delete them;
+**export** the current config to a JSON file and **import** one back. Imported and
+hand-edited JSON is sanitized (missing fields filled, values clamped) on the way in.
 
-- Optional second entrainment layer: a sine tone gated on/off at the beat frequency,
-  producing a **directly audible** rhythmic pulse (unlike the binaural beat, which is a
-  subtle phantom). Works without headphones.
-- Independent volume, plus a carrier offset so the pulse can sit at a different pitch from
-  the binaural tone. Default off; toggle it on/off live mid-session.
-- Follows beat-frequency drift automatically — the pulse rate is always the current beat.
+**Light / dark theme** — a token-based theming system with light and dark themes that
+switch instantly (including the SVG timeline). Follows your OS preference by
+default; the transport-bar toggle overrides and persists your choice.
 
-**Visuals**
-
-- A pulsing circle synced to the current beat frequency, colored by band — animates at
-  idle from the configured beat and live during playback.
-
-**Sessions & config**
-
-- Save named sessions to `localStorage`; load or delete them.
-- Export the current config to a JSON file (also filled into a textarea), and import
-  from pasted text or a file.
+**Keyboard** — **Space** toggles play/pause globally (ignored while typing in a field or
+when a button is focused, so it never hijacks the focused control).
 
 ## Brainwave bands
 
@@ -98,93 +115,170 @@ Beat frequency, as classified by `band()`:
 | Beta  | < 30       | focus               |
 | Gamma | ≥ 30       | —                   |
 
-The graph's band-zone shading uses Delta 0.5–4, Theta 4–8, Alpha 8–14, Beta 14–30.
+The timeline's band-zone shading uses Delta <4, Theta 4–8, Alpha 8–14, Beta 14–30, Gamma ≥30.
 
-## How it works (architecture)
+## Architecture
 
-The app is a single `index.html`: HTML + inline CSS + inline JS (an IIFE under
-`"use strict"`). A few design decisions are worth understanding before modifying it.
-
-### Audio graph
+The app splits into a **framework-agnostic audio engine** (imperative, owns the
+`AudioContext` and node graph, is the timing authority) and a **React UI** (declarative,
+owns config state, calls engine methods on user events, and reads engine-published live
+values for visuals).
 
 ```
-carrierSrc (ConstantSource) -> leftOsc.frequency  \  leftOsc  (sine) -> leftPan  (pan -1) -\
-                            \-> rightOsc.frequency  } rightOsc (sine) -> rightPan (pan +1) --> toneGain (fade env) -> master (vol) -> destination
-beatSrc    (ConstantSource) -> rightOsc.frequency /
-noiseSrc   (looped buffer)  -> noiseGain (indep) ---------------------------------------------> master
-isoOsc (sine, carrier+offset) -> isoGate (gated) -> isoVolGain (indep) -----------------------> master
-gateLFO (sine) <- beatSrc ;  gateLFO -> isoGate.gain    (raised-cosine gate at the beat rate)
+src/
+  main.jsx  App.jsx            # entry + layout shell (providers, Space shortcut)
+  audio/
+    AudioEngine.js             # THE engine (Web Audio) — no DOM/React
+    noise.js                   # makeNoiseBuffer(ctx, type) — white/pink/brown
+    curves.js                  # interp(), sampleCurve(), beatAt(), carrierAt()
+  lib/
+    bands.js  config.js  storage.js  cx.js
+  state/
+    configReducer.js  ConfigContext.jsx   # useReducer + context
+  theme/
+    tokens.css  themes.css  ThemeContext.jsx  useTheme.js
+  hooks/
+    useAudioEngine.js          # config <-> engine bridge; coarse transport state
+    useEngineFrame.js          # subscribe to engine frames for imperative visuals
+  components/
+    primitives/…               # Slider, IconButton, SegControl, Toggle,
+                               #   EditableNumber, Panel, BandPill, ColorDot, ThemeToggle
+    TransportBar, LayersPanel, Layer, MixSlider, *LayerBody,
+    SavedSessions, Timeline, TimelineToolbar, DriftCard, DualSlider, Toast
+  styles/base.css              # structural/layout CSS (no literal colors)
 ```
 
-Frequencies are **not** set on the oscillators directly. Both `leftOsc.frequency` and
+**Reuse over duplication.** The three mixer layers share one generic `Layer`
+(power header) and compose their bodies from the same `MixSlider` /
+`SegControl` primitives. `DriftCard` is a single component rendered twice (beat &
+carrier). Every raw control (range input, icon button, segmented control, toggle,
+click-to-edit number) exists exactly once under `primitives/`.
+
+### React state & the render loop
+
+- **Config** lives in `useReducer(configReducer, DEFAULT_CONFIG)` behind
+  `ConfigContext` — the single source of truth for the timeline, drift cards, and layers.
+  Every form control dispatches an action.
+- **`useAudioEngine`** owns one `AudioEngine`, exposes `play/pause/stop`, and forwards
+  config-slice changes to engine methods (slider → `setBeat`, power → `setLayerPower`,
+  vol → `setLayerVol`, …).
+- **`useEngineFrame`** subscribes to `engine.onFrame`. **High-frequency visuals never use
+  React state** — the callback writes straight to refs/DOM/SVG (scrub fill/knob, readouts,
+  band pill, timeline playhead, live drift thumbs). Only coarse state (playing flag, ~2/s timer text)
+  goes through `setState`, keeping 60fps off the reconciler.
+
+### The audio engine (how it works)
+
+The engine preserves the original app's hard-won correctness properties:
+
+#### Audio graph
+
+```
+carrierSrc (ConstantSource) -> leftOsc.frequency        leftOsc  (sine) -> leftPan  (-1) -\
+                            \-> rightOsc.frequency       rightOsc (sine) -> rightPan (+1) --> toneEnv -> toneVol -\
+beatSrc    (ConstantSource) -> rightOsc.frequency                                                                 \
+                                                                                                                   \
+noiseSrc (looped buffer) -> noiseEnv -> noiseVol -----------------------------------------------------------------> master (unity) -> destination
+                                                                                                                   /
+isoOsc (sine, freq = carrierSrc + isoOffsetSrc) -> isoGate -> isoEnv -> isoVol -----------------------------------/
+
+gateLFO (sine, freq driven by beatSrc) -> gateDepth -> isoGate.gain   (raised-cosine gate at the beat rate)
+endSrc  (silent ConstantSource) -> onended -> teardown               (audio-clock session timer; NOT in the audio path)
+```
+
+Frequencies are **not** set on the oscillators directly. `leftOsc.frequency` and
 `rightOsc.frequency` have intrinsic value 0 and are driven by two `ConstantSourceNode`s
 summed in: `carrierSrc` feeds both ears (so left = carrier) and `beatSrc` feeds only the
 right ear (so right = carrier + beat). This split is what lets the carrier and beat be
-controlled independently at runtime.
+scheduled/edited independently without value-curve collisions. (`carrierSrc` also drives
+`isoOsc.frequency`, alongside `isoOffsetSrc`.)
 
-- `master.gain` — master volume (also scales the noise layer).
-- `toneGain` — fade-in / fade-out envelope for the tones (starts at 0).
-- `noiseGain` — independent noise level, fades in/out with the session.
+Each layer routes through its own gain chain: `source → envelopeGain → layerVolGain →
+master`. `master` is pinned at unity (headroom only) — there is **no** master volume;
+every layer carries its own volume.
+
+#### Click-free audio via AudioParam scheduling
+
+Audio parameters are always changed through AudioParam scheduling, never raw assignment
+mid-playback:
+
+- **Fades** are gain ramps on each layer's envelope gain (peak 1; volume lives on the
+  separate `layerVolGain`).
+- **Drift** is `setValueCurveAtTime` on the relevant offset — `carrierSrc.offset` for
+  carrier drift, `beatSrc.offset` for beat drift — sampling the planned curve at ~2
+  points/sec (clamped 32..20000) via `sampleCurve()`; linear interpolation avoids zipper
+  noise. The `stepped` shape smooths each plateau-to-plateau transition.
+- **Live retune** (moving a slider while playing) uses `setTargetAtTime` (~0.02 s) on the
+  corresponding offset. A drifting parameter's slider is inert so its value-curve is never
+  disturbed; the render loop only _writes_ the live curve value into that slider for
+  display.
+- **Layer volume** is a short `setTargetAtTime` (~0.05 s) on each layer's `layerVolGain`,
+  so re-leveling a track live never clicks.
+- **Layer power** live-adds or live-removes a layer's actual nodes (`setLayerPower`),
+  fading its envelope gain in/out so a track can be toggled mid-session click-free.
+- **Isochronic gate** — a sine LFO whose frequency is driven by the _same_ `beatSrc`,
+  feeding a raised-cosine (`0.5 + 0.5·sin`) gain envelope. Because it reads `beatSrc`, the
+  pulse rate tracks drift and live edits for free, and the smooth envelope reaches zero at
+  the troughs with no click. The iso carrier is `carrierSrc + isoOffsetSrc`.
+
+#### End-of-session runs on the audio clock
+
+`requestAnimationFrame` is throttled/paused when a tab is hidden, but a meditation timer
+must still end correctly. So `start()` pre-schedules, in AudioContext time, the end
+fade-out and every `stop()`. A dedicated `endSrc` ConstantSource's `onended` runs
+teardown on the audio thread regardless of tab focus (so the session ends correctly even
+with the tone layer powered off). `requestAnimationFrame` is visuals-only, plus a
+`setInterval(500 ms)` fallback keeps the timer alive in a background tab.
+
+#### Pause / resume
+
+Pause is `AudioContext.suspend()` and resume is `.resume()`. Suspending freezes
+`AudioContext.currentTime`, which automatically freezes the timer, every scheduled ramp,
+and the pre-scheduled stop time — so pause works across the whole timeline with no extra
+bookkeeping.
+
+#### SVG / imperative visuals
+
+The timeline is SVG drawn from real model values; the playhead, scrub, and
+readouts are updated imperatively per frame (refs → attributes), never via React state.
+All colors are CSS **tokens** (`var(--…)`), so the SVG re-tints instantly on a theme flip
+with no redraw code.
 
 ### Config shape
 
-`readConfig()` produces (and `applyConfig()` consumes) this object, which is also the
-export/import and `localStorage` JSON shape:
+The saved / exported JSON shape:
 
 ```
-{ carrier, beat, volume(0..1), duration(min),
-  drift{on,start,end,shape,plateaus},
-  carrierDrift{on,start,end,shape,plateaus},
-  noise{on,type,vol(0..1)},
-  iso{on,offset,vol(0..1)}, name? }
+{ name?, duration,                            // duration in minutes (1–180)
+  tone:  { on, carrier, beat, vol },
+  drift: { on, start, end, shape, plateaus },
+  carrierDrift: { on, start, end, shape, plateaus },
+  iso:   { on, offset, vol },
+  noise: { on, type, vol } }
 ```
 
-### Click-free audio via AudioParam scheduling
+- `clampConfig` / `validate` (`lib/config.js`) fill any missing fields from
+  `DEFAULT_CONFIG` and centralize all range clamps (carrier 50–500, beat 0.5–40,
+  duration 1–180, vols 0–1, iso offset −100..100, plateaus 2–12) and never throw.
+  This runs on **every** `localStorage` read and **every** import, so partial or
+  hand-edited JSON always loads clean.
 
-Audio parameters are always changed through AudioParam scheduling, never raw value
-assignment mid-playback:
+### Theming (token system)
 
-- **Fades** use gain ramps on `toneGain` (0.5 s fade-in from 0→1; a matching fade-out).
-- **Drift** is `setValueCurveAtTime` on the relevant offset — `carrierSrc.offset` for
-  carrier drift, `beatSrc.offset` for beat drift — sampling the planned curve at ~2
-  points/sec (clamped to 32..20000 points) via `sampleCurve()`. Linear interpolation
-  between samples avoids zipper noise.
-- **Live retune** (moving a slider while playing) uses `setTargetAtTime` (~0.02 s) on the
-  corresponding offset. Because carrier and beat live on separate nodes, each is editable
-  live whenever _its own_ drift is off. A drifting parameter's slider is faded
-  (`pointer-events:none`) so its running value-curve is never disturbed — the render loop
-  only _writes_ the live curve value into that faded slider for display, never the
-  reverse. You cannot `linearRamp`/`setTarget` over a `setValueCurveAtTime` on the same
-  param, which is exactly the collision the two-node design avoids.
-- The `stepped` drift shape smooths each plateau-to-plateau transition (smoothstep over
-  the last 35% of each plateau) so there are no vertical jumps.
-- **Isochronic gate** — a sine LFO whose frequency is driven by the _same_ `beatSrc` as
-  the binaural pair, feeding a raised-cosine (`0.5 + 0.5·sin`) gain envelope. Because it
-  reads `beatSrc`, the pulse rate tracks drift and live edits with no extra scheduling,
-  and the smooth envelope reaches zero at the troughs without any click. The iso carrier
-  is `carrierSrc + isoOffsetSrc`, so it follows carrier drift and can be pitched apart.
+Color is fully token-driven, in three layers:
 
-### End-of-session runs on the audio clock
+- **`styles/base.css`** — all structural/layout rules and class names. **Contains no
+  literal colors**; every color is a `var(--token)`.
+- **`theme/tokens.css`** — the semantic token _catalog_ (e.g. `--surface`, `--border`,
+  `--text`, `--accent`, `--band-delta…--band-gamma`, mixer-state tints, glows) plus the
+  theme-neutral tokens (typography). Documents the contract; holds no color values.
+- **`theme/themes.css`** — the token _values_, one block per theme under
+  `:root[data-theme="dark"]` and `:root[data-theme="light"]`. **This is the only file
+  where literal colors live.**
 
-`requestAnimationFrame` is throttled or paused when a browser tab is hidden, but a
-meditation timer must still end correctly if the user switches tabs. So `startAudio()`
-pre-schedules, in AudioContext time, both the end fade-out and `oscillator.stop()` for
-each source. Teardown and UI reset happen in `leftOsc.onended` (`onEnded()`), which fires
-on the audio thread regardless of tab focus. `requestAnimationFrame` is used only for
-visuals (graph marker, pulse), plus a `setInterval(500 ms)` fallback so the timer display
-keeps updating in a background tab.
-
-### Pause / resume
-
-Pause is `AudioContext.suspend()` and resume is `.resume()`. Suspending freezes
-`AudioContext.currentTime`, which automatically freezes the timer (computed as
-`currentTime - startTime`), every scheduled ramp, and the pre-scheduled stop time — so
-pause works across the whole timeline with no extra bookkeeping.
-
-### Canvas coordinate space
-
-`setupCanvas()` sizes each canvas backing store to CSS-size × `devicePixelRatio` and
-applies `setTransform(dpr, …)`. The draw functions therefore work in **logical (CSS)
-pixels** — `drawGraph`/`drawPulse` use `clientWidth` and fixed logical heights (240 /
-140), not `canvas.width`/`.height` (backing pixels). Keep this convention if you touch the
-canvases, or retina displays will double-scale everything.
+`ThemeContext` sets `data-theme` on `<html>` (defaulting to `prefers-color-scheme`,
+overridable and persisted). Switching only flips that one attribute, so it is instant and
+affects the whole tree including SVG. **Adding a new theme is one more block in
+`themes.css` and zero component changes.**
+</content>
+</invoke>

@@ -1,0 +1,53 @@
+/* ============================================================================
+ * tokens.css — the design-token contract
+ * ----------------------------------------------------------------------------
+ * Two responsibilities:
+ *   1. Declare the theme-NEUTRAL design tokens (typography, radii, motion) that
+ *      do not change between light and dark.
+ *   2. Document the full catalog of SEMANTIC COLOR tokens the app uses. Every
+ *      color in base.css / components resolves through one of these names —
+ *      never a raw hex. Their VALUES are supplied per theme in themes.css under
+ *      :root[data-theme="dark"] / :root[data-theme="light"]. Adding a new theme
+ *      is one more block there and zero changes anywhere else.
+ *
+ * SEMANTIC COLOR TOKEN CATALOG (values live in themes.css)
+ *   Surfaces & structure
+ *     --surface                page / deepest background, inset controls
+ *     --surface-raised         panel / card background
+ *     --surface-control        buttons, chips, track backgrounds
+ *     --surface-control-hover  hover state for control surfaces
+ *     --border                 hairline borders / dividers
+ *   Text
+ *     --text                   primary text
+ *     --text-muted             secondary / label text
+ *   Accent (teal family)
+ *     --accent                 primary accent
+ *     --accent-deep            darker accent (gradient stop)
+ *     --accent-darker          darkest accent (gradient stop)
+ *     --accent-border          accent border on the play button
+ *     --on-accent              text/icon sitting on an accent fill
+ *     --accent-surface         accent-tinted surface (active chips, band pill)
+ *     --accent-surface-hover   hover for accent-tinted surface
+ *     --sess-active-bg         selected saved-session row background
+ *   Brainwave bands
+ *     --band-delta  --band-theta  --band-alpha  --band-beta  --band-gamma
+ *     --band-delta-surface  --band-theta-surface  --band-alpha-surface
+ *     --band-beta-surface   --band-gamma-surface
+ *       (band-tinted surfaces behind the transport band pill; SVG timeline and
+ *        the L/R meter read the band + accent tokens above at runtime too)
+ *   Mixer state tints
+ *     --danger                 destructive accent
+ *     --pow-on-bg              active power button background
+ *     --seg-on-bg              active segmented-control button background
+ *   Glows, rings & shadows (accent-derived, so they are themed too)
+ *     --glow-accent  --glow-accent-med  --glow-accent-strong
+ *     --glow-accent-weak  --glow-accent-bright
+ *     --ring-accent-weak  --ring-accent  --ring-theta
+ *     --shadow-ribbon  --shadow-handle
+ * ==========================================================================*/
+
+:root {
+  /* Typography (theme-neutral) */
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Roboto Mono", monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
