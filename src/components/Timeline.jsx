@@ -68,7 +68,7 @@ function mmss(totalSeconds) {
  * All colors are token references (via inline `style` var()), so the whole
  * drawing re-tints when the theme flips — no hardcoded hex, no manual redraw.
  */
-export default function Timeline({ snap = false }) {
+export default function Timeline() {
   const config = useConfig();
   const dispatch = useConfigDispatch();
   const { playing } = useEngine();
@@ -120,9 +120,6 @@ export default function Timeline({ snap = false }) {
     const rect = svgRef.current.getBoundingClientRect();
     const svgY = ((clientY - rect.top) / rect.height) * H;
     const hz = AX.min + (1 - (svgY - padT) / plotH) * (AX.max - AX.min);
-    // With the snap grid on, quantize the dragged endpoint to the visible Hz
-    // gridlines (AX.step) so dragging lands on the same lines the grid shows.
-    if (snap && AX.step > 0) return Math.round(hz / AX.step) * AX.step;
     return hz;
   }
   function endpointProps(which) {
@@ -223,14 +220,6 @@ export default function Timeline({ snap = false }) {
                 </g>
               );
             })}
-
-            {/* snap grid (visual only) */}
-            {snap && Array.from({ length: DIVS * 2 + 1 }, (_, i) => (
-              <line key={`sv${i}`} x1={x(i / (DIVS * 2))} y1={padT} x2={x(i / (DIVS * 2))} y2={padT + plotH} style={stroke('var(--accent)')} strokeOpacity="0.14" strokeWidth="1" />
-            ))}
-            {snap && hzTicks.map((hz) => (
-              <line key={`sh${hz}`} x1={padL} y1={y(hz)} x2={padL + plotW} y2={y(hz)} style={stroke('var(--accent)')} strokeOpacity="0.12" strokeWidth="1" />
-            ))}
 
             {/* time gridlines + labels */}
             {Array.from({ length: DIVS + 1 }, (_, i) => {

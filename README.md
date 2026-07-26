@@ -83,8 +83,6 @@ type it) plus a live SVG **timeline**:
   same model the audio plays, not a decorative approximation), a dashed carrier
   reference line, a live playhead during playback, and two draggable **endpoint
   handles** two-way bound to the beat dual slider.
-- **Snap grid** toggle: shows a denser gridline overlay and snaps the timeline endpoint
-  drags to the visible Hz gridlines.
 - While a parameter is drifting its slider is inert (the curve is pre-scheduled), but
   during playback it tracks the live curve value; the _other_ parameter stays live-editable.
 

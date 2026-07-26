@@ -13,13 +13,12 @@ const PRESETS = [
 ];
 
 /**
- * TimelineToolbar — band presets + Beat/Carrier drift + Snap-grid toggles.
+ * TimelineToolbar — band presets + Beat/Carrier drift toggles.
  * Presets set the base beat (`tone.beat`) and are disabled while beat drift is
  * on (the drift owns the beat then). Drift toggles flip config `*.on` (which
- * show/hide the drift cards and drive the tone sliders). Snap is a local visual
- * flag owned by the parent and passed down to Timeline.
+ * show/hide the drift cards and drive the tone sliders).
  */
-export default function TimelineToolbar({ snap, onSnap }) {
+export default function TimelineToolbar() {
   const { drift, carrierDrift } = useConfig();
   const dispatch = useConfigDispatch();
 
@@ -45,7 +44,6 @@ export default function TimelineToolbar({ snap, onSnap }) {
       <div className="tb-spacer" />
       <Toggle pressed={drift.on} onChange={(v) => dispatch(setField('drift.on', v))}>Beat drift</Toggle>
       <Toggle pressed={carrierDrift.on} onChange={(v) => dispatch(setField('carrierDrift.on', v))}>Carrier drift</Toggle>
-      <Toggle pressed={snap} onChange={onSnap}>Snap grid</Toggle>
     </div>
   );
 }

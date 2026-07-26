@@ -21,8 +21,6 @@ function Studio() {
   const {
     completed, clearCompleted, play, pause, playing,
   } = useEngine();
-  // Snap grid is a local visual flag shared by the toolbar + timeline.
-  const [snap, setSnap] = useState(false);
   // Transient status text for session load/import/export etc.
   const [toast, setToast] = useState('');
 
@@ -73,8 +71,8 @@ function Studio() {
 
         <div className="maincol">
           <div className="panel">
-            <TimelineToolbar snap={snap} onSnap={setSnap} />
-            <Timeline snap={snap} />
+            <TimelineToolbar />
+            <Timeline />
           </div>
 
           {drift.on && <DriftCard kind="beat" />}
