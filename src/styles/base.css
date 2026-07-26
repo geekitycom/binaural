@@ -430,7 +430,45 @@ a:focus-visible,
 }
 .saved-empty { font-size: 11px; color: var(--text-muted); padding: 4px 2px; }
 
-/* ===== mobile ===== */
+/* ===== Touch-friendly control sizing =====
+   Applied at EVERY width (not phones-only) so sliders, buttons, and readouts
+   are comfortable to grab on any device — touchscreen, trackpad, or mouse. Kept
+   as one block just above the media queries; the responsive blocks below only
+   adjust layout/spacing. */
+
+/* Base text a touch larger for legibility (base body is 13px). */
+body { font-size: 14.5px; }
+
+/* Sliders: taller track, bigger thumb, and a taller row so the whole strip is
+   a comfortable drag target. */
+.slider { height: 6px; }
+.slider::-webkit-slider-thumb { width: 24px; height: 24px; }
+.slider::-moz-range-thumb { width: 24px; height: 24px; }
+.vol { gap: 10px; min-height: 40px; }
+.vol .vlab { font-size: 12px; width: 34px; }
+.vol .vval { font-size: 13px; width: 48px; }
+.vol .vval[role="button"] { padding: 4px 6px; }
+.tonectl .vlab { width: 56px; font-size: 11px; }
+
+/* Dual-handle drift slider: bigger drag handles + readouts. */
+.dhandle { width: 26px; height: 26px; margin-left: -13px; }
+.dtrack { height: 7px; }
+.dnum, .dnum input { font-size: 15px; }
+
+/* Transport + control buttons hit ~44px, Apple's min touch target. */
+.tbtn { width: 44px; height: 44px; }
+.tbtn svg { width: 18px; height: 18px; }
+.seg button { padding: 10px 12px; font-size: 13px; }
+.preset { padding: 9px 12px; font-size: 12.5px; }
+.ms.pow { min-height: 30px; padding: 0 11px; font-size: 12px; }
+.lhint { width: 20px; height: 20px; font-size: 12px; }
+
+/* Live readout tiles + labels a touch larger for legibility. */
+.ro .v { font-size: 16px; }
+.ro .k { font-size: 10px; }
+.layer .lname { font-size: 15px; }
+
+/* ===== responsive layout (spacing/stacking only) ===== */
 @media (max-width: 820px) {
   .app { padding: 10px; }
   .grid { grid-template-columns: 1fr; }
@@ -445,43 +483,10 @@ a:focus-visible,
   .ro { flex: 1; min-width: 0; }
   .bandpill { width: 100%; justify-content: center; }
 
-  .layer .lname { font-size: 14px; }
   .layer .meta { font-size: 12.5px; }
   .tl-toolbar { gap: 6px; }
 }
 @media (max-width: 480px) {
   .brand .sub { display: none; }
   .legend { gap: 8px 10px; }
-
-  /* ---- Touch sizing: larger text + finger-friendly targets on phones ---- */
-  body { font-size: 14.5px; }
-
-  /* Sliders: taller track, bigger thumb, and a taller row so the whole strip is
-     a comfortable drag target. */
-  .slider { height: 6px; }
-  .slider::-webkit-slider-thumb { width: 24px; height: 24px; }
-  .slider::-moz-range-thumb { width: 24px; height: 24px; }
-  .vol { gap: 10px; min-height: 40px; }
-  .vol .vlab { font-size: 12px; width: 34px; }
-  .vol .vval { font-size: 13px; width: 48px; }
-  .vol .vval[role="button"] { padding: 4px 6px; }
-  .tonectl .vlab { width: 56px; font-size: 11px; }
-
-  /* Dual-handle drift slider: bigger drag handles + readouts. */
-  .dhandle { width: 26px; height: 26px; margin-left: -13px; }
-  .dtrack { height: 7px; }
-  .dnum, .dnum input { font-size: 15px; }
-
-  /* Transport + control buttons hit ~44px, Apple's min touch target. */
-  .tbtn { width: 44px; height: 44px; }
-  .tbtn svg { width: 18px; height: 18px; }
-  .seg button { padding: 10px 12px; font-size: 13px; }
-  .preset { padding: 9px 12px; font-size: 12.5px; }
-  .ms.pow { min-height: 30px; padding: 0 11px; font-size: 12px; }
-  .lhint { width: 20px; height: 20px; font-size: 12px; }
-
-  /* Live readout tiles + labels a touch larger for legibility. */
-  .ro .v { font-size: 16px; }
-  .ro .k { font-size: 10px; }
-  .layer .lname { font-size: 15px; }
 }
